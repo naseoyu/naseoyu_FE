@@ -99,7 +99,7 @@ export const CostCategoryTaxonomy: React.FC<CostCategoryTaxonomyProps> = ({ comp
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          전체 12대 항목 ({CORE_COST_ITEMS.length})
+          전체 11대 항목 ({CORE_COST_ITEMS.length})
         </button>
         <button
           onClick={() => setActiveTab('depreciation')}
@@ -133,7 +133,7 @@ export const CostCategoryTaxonomy: React.FC<CostCategoryTaxonomyProps> = ({ comp
         </button>
       </div>
 
-      {/* 12 Core Items Grid / List */}
+      {/* 11 Core Items Grid / List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {filteredCoreItems.map((item) => {
           const hasSubItems = item.subItems && item.subItems.length > 0;

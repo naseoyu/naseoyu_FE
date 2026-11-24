@@ -1,7 +1,7 @@
 import { CoreCostItem, ConditionalCostItem, PresetSampleDoc } from '../types';
 
 /**
- * 12 Core Cost Analysis Items
+ * 11 Core Cost Analysis Items
  * Adhering strictly to the enterprise cost taxonomy
  */
 export const CORE_COST_ITEMS: CoreCostItem[] = [
@@ -112,16 +112,6 @@ export const CORE_COST_ITEMS: CoreCostItem[] = [
       { name: '액체냉각 관련 유지보수', description: '유전체 냉매 산도 분석, 펌프 씰 교체, 미세 필터 교체', status: 'entered' },
     ],
   },
-  {
-    id: 'cost-12',
-    itemNumber: 12,
-    name: '상면 및 부지 임차료',
-    category: '운영 및 외주',
-    classification: 'fixed',
-    description: '코로케이션 랙 상면 임대료, 데이터센터 부지·건물 임차료 및 공용 공간 관리비',
-    customText: '가나다라',
-    status: 'entered',
-  },
 ];
 
 /**
@@ -184,7 +174,7 @@ export const SAMPLE_DATA_CENTER_PRESETS: PresetSampleDoc[] = [
     fileSizeBytes: 4784128, // 4.56 MB
     pageCount: 32,
     label: '하이퍼스케일 AI 전용 데이터센터',
-    summary: 'NVIDIA H100 512기 클러스터의 전력(PUE 1.45), 회선, 액체냉각 구축비 및 12개 운영비 항목 감사 보고서',
+    summary: 'NVIDIA H100 512기 클러스터의 전력(PUE 1.45), 회선, 액체냉각 구축비 및 11개 운영비 항목 감사 보고서',
     primaryGpuSpec: 'NVIDIA H100 SXM5 512기',
     dataCenterType: 'Tier-3+ 엔터프라이즈 AI 데이터센터',
   },

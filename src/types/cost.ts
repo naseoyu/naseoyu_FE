@@ -15,7 +15,7 @@ export type CostEntryStatus =
   | 'not_entered'      // 미입력 상태
   | 'excluded';        // 산정 제외 상태
 
-// 12 Primary Cost Analysis Items
+// 11 Primary Cost Analysis Items
 export interface CoreCostItem {
   id: string;
   itemNumber: number;

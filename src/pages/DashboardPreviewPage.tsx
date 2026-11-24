@@ -47,7 +47,7 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
               <span className="text-slate-500">운영비 분석 결과 대시보드</span>
             </div>
             <h1 className="text-2xl font-bold text-[#172033] tracking-tight">
-              데이터센터 12대 운영비 분석 및 예측 결과
+              데이터센터 11대 운영비 분석 및 예측 결과
             </h1>
             <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
               <span>분석 문서: <strong className="text-slate-800 font-mono">{uploadedDoc.name}</strong></span>
@@ -108,12 +108,12 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
           </div>
         </div>
 
-        {/* 12 Core Cost Items & Conditional Framework */}
+        {/* 11 Core Cost Items & Conditional Framework */}
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-bold text-[#172033]">
-                12대 주요 비용 항목 및 조건부 비용 반영 현황
+                11대 주요 비용 항목 및 조건부 비용 반영 현황
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 업로드된 PDF에서 추출된 항목별 분류 및 세부 점검 내역입니다.

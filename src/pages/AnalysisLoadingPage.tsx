@@ -51,8 +51,8 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     {
       step: 3,
       title: 'STEP 3. 주요 비용 항목 분류 및 분석',
-      subtitle: '12 Core Cost Categories Mapping',
-      description: '전력료, 회선, 감가상각비, 수선유지비 등 12대 기본 비용 체계로 항목을 매핑합니다.',
+      subtitle: '11 Core Cost Categories Mapping',
+      description: '전력료, 회선, 감가상각비, 수선유지비 등 11대 기본 비용 체계로 항목을 매핑합니다.',
       status: currentStep > 3 || isCompleted ? 'completed' : currentStep === 3 ? 'in_progress' : 'pending',
     },
     {
@@ -174,7 +174,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
               <p className="mt-2 text-sm text-slate-600">
                 {!isCompleted
                   ? '업로드한 데이터센터 자료를 분석하고 있습니다. 비용 항목별 데이터를 확인하고 최적화 가능성을 검토하고 있습니다.'
-                  : '12대 기본 비용 항목 분류 및 최적화 추천안 도출이 완료되었습니다. 대시보드에서 결과를 확인하세요.'}
+                  : '11대 기본 비용 항목 분류 및 최적화 추천안 도출이 완료되었습니다. 대시보드에서 결과를 확인하세요.'}
               </p>
             </div>
 

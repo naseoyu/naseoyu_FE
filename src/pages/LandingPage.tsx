@@ -33,7 +33,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartUpload, onSelec
             <div className="flex items-center gap-2 text-xs font-bold text-[#2563EB] uppercase tracking-wider mb-4">
               <span>B2B Enterprise AI Infrastructure FinOps</span>
               <span>·</span>
-              <span>12대 표준 운영비 분석 체계</span>
+              <span>11대 표준 운영비 분석 체계</span>
             </div>
 
             {/* Main Title Required by Prompt */}
@@ -75,7 +75,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartUpload, onSelec
                 <div>
                   <h4 className="text-sm font-bold text-[#172033]">데이터센터 운영비 분석</h4>
                   <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                    전력료, 전용회선, 용수, 감가상각비 등 12대 기본 비용을 정밀 산정합니다.
+                    전력료, 전용회선, 용수, 감가상각비 등 11대 기본 비용을 정밀 산정합니다.
                   </p>
                 </div>
               </div>
@@ -108,7 +108,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartUpload, onSelec
         </div>
       </section>
 
-      {/* 12 Core Cost Taxonomy Overview Section */}
+      {/* 11 Core Cost Taxonomy Overview Section */}
       <section className="py-20 bg-slate-50 border-b border-slate-200">
         <div className="max-w-[1440px] mx-auto px-8">
           <div className="max-w-3xl mb-12">
@@ -116,7 +116,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartUpload, onSelec
               Cost Intelligence Framework
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-[#172033] tracking-tight">
-              데이터센터 12대 핵심 비용 분석 체계
+              데이터센터 11대 핵심 비용 분석 체계
             </h2>
             <p className="mt-2 text-sm text-slate-600 leading-relaxed">
               고정비, 사용량 연동 비용, 자산 감가상각비를 엄격히 분류하여 투명하고 오차 없는 재무 모델을 제공합니다.
@@ -189,7 +189,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartUpload, onSelec
             데이터센터 운영비 최적화를 지금 시작하세요
           </h2>
           <p className="text-slate-300 text-sm max-w-2xl mx-auto mb-8 leading-relaxed">
-            운영 현황 및 비용 관련 PDF 자료를 업로드하면 12대 항목 기반의 분석과 맞춤형 예측을 제공합니다.
+            운영 현황 및 비용 관련 PDF 자료를 업로드하면 11대 항목 기반의 분석과 맞춤형 예측을 제공합니다.
           </p>
           <button
             onClick={onStartUpload}

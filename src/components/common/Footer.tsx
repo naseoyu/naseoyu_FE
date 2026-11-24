@@ -17,7 +17,7 @@ export const Footer: React.FC = () => {
               </span>
             </div>
             <p className="text-slate-400 text-xs leading-relaxed max-w-2xl">
-              12대 기본 비용 분석 항목과 고정비·사용량 연동 비용·감가상각비 구분을 통해 기업 데이터센터 운영비 예측과 최적화를 지원합니다.
+              11대 기본 비용 분석 항목과 고정비·사용량 연동 비용·감가상각비 구분을 통해 기업 데이터센터 운영비 예측과 최적화를 지원합니다.
             </p>
           </div>
 
@@ -28,7 +28,7 @@ export const Footer: React.FC = () => {
             </div>
             <div className="flex items-center gap-1.5">
               <FileCheck className="w-4 h-4 text-emerald-400" />
-              <span>12대 표준 비용 분류 체계</span>
+              <span>11대 표준 비용 분류 체계</span>
             </div>
           </div>
         </div>
