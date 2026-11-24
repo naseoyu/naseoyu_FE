@@ -1,0 +1,8 @@
+{
+  "name": "Remix AI Data Center Cost Intelligence",
+  "description": "AI Data Center 비용 분석 및 최적화 서비스를 위한 엔터프라이즈 웹 애플리케이션 프로토타입",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
