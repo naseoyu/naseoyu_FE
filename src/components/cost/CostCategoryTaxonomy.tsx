@@ -158,6 +158,12 @@ export const CostCategoryTaxonomy: React.FC<CostCategoryTaxonomyProps> = ({ comp
                 {item.description}
               </p>
 
+              {item.customText && (
+                <p className="text-xs font-medium text-[#172033] mb-3">
+                  {item.customText}
+                </p>
+              )}
+
               {/* Sub-items if any (e.g. 수선유지비 6개 항목) */}
               {hasSubItems && (
                 <div className="mt-3 pt-3 border-t border-slate-100">

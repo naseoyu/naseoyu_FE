@@ -119,6 +119,7 @@ export const CORE_COST_ITEMS: CoreCostItem[] = [
     category: '운영 및 외주',
     classification: 'fixed',
     description: '코로케이션 랙 상면 임대료, 데이터센터 부지·건물 임차료 및 공용 공간 관리비',
+    customText: '가나다라',
     status: 'entered',
   },
 ];

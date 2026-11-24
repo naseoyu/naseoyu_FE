@@ -23,6 +23,7 @@ export interface CoreCostItem {
   category: '인프라 및 동력' | '자산 감가상각' | '운영 및 외주' | '수선유지비';
   classification: CostClassification;
   description: string;
+  customText?: string;
   status: CostEntryStatus;
   amountUsd?: number;
   monthlyAmountUsd?: number;
