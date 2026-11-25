@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   ServicePage,
   UploadedDataCenterDoc,
@@ -12,6 +12,7 @@ import {
   AnalysisFocusArea,
   CustomAnalysisResult,
   PromptChatMessage,
+  AidcProjectSpecs,
 } from './types';
 import { SAMPLE_DATA_CENTER_PRESETS } from './data/costTaxonomyData';
 import { Header } from './components/common/Header';
@@ -22,16 +23,30 @@ import { UploadPage } from './pages/UploadPage';
 import { AnalysisLoadingPage } from './pages/AnalysisLoadingPage';
 import { DashboardPreviewPage } from './pages/DashboardPreviewPage';
 
+const INITIAL_AIDC_SPECS: AidcProjectSpecs = {
+  commencementDate: '',
+  usageDuration: '',
+  gpuSystemType: '',
+  storageCapacity: '',
+  diaBandwidth: '',
+};
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState<ServicePage>('landing');
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDataCenterDoc[]>([]);
   const [analysisRequest, setAnalysisRequest] = useState<string>('');
   const [timeframe, setTimeframe] = useState<AnalysisTimeframe>('all');
   const [focusArea, setFocusArea] = useState<AnalysisFocusArea>('all');
+  const [aidcSpecs, setAidcSpecs] = useState<AidcProjectSpecs>(INITIAL_AIDC_SPECS);
   const [analysisResult, setAnalysisResult] =
     useState<CustomAnalysisResult | null>(null);
   const [analysisRunKey, setAnalysisRunKey] = useState<number>(0);
   const [chatMessages, setChatMessages] = useState<PromptChatMessage[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTop = () => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const getDefaultDocs = (): UploadedDataCenterDoc[] => {
     const preset = SAMPLE_DATA_CENTER_PRESETS[0];
@@ -59,12 +74,12 @@ export default function App() {
       setAnalysisRunKey((k) => k + 1);
     }
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   const handleStartUpload = () => {
     setCurrentPage('upload');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   const handleSelectPreset = (preset: PresetSampleDoc) => {
@@ -82,7 +97,7 @@ export default function App() {
       return [...prev, doc];
     });
     setCurrentPage('upload');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   const handleAddDocs = (docs: UploadedDataCenterDoc[]) => {
@@ -101,7 +116,7 @@ export default function App() {
     if (uploadedDocs.length === 0) return;
     setAnalysisRunKey((k) => k + 1);
     setCurrentPage('analysis_loading');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   const handleAnalysisComplete = useCallback(
@@ -113,7 +128,7 @@ export default function App() {
 
   const handleProceedToDashboard = () => {
     setCurrentPage('dashboard_preview');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   const handleNewAnalysis = () => {
@@ -121,9 +136,10 @@ export default function App() {
     setAnalysisRequest('');
     setTimeframe('all');
     setFocusArea('all');
+    setAidcSpecs(INITIAL_AIDC_SPECS);
     setAnalysisResult(null);
     setCurrentPage('upload');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   const handleAddChatMessage = (msg: PromptChatMessage) => {
@@ -148,13 +164,17 @@ export default function App() {
     else if (requestText.includes('감가상각')) setFocusArea('depreciation');
     else if (requestText.includes('OPEX') || requestText.includes('운영비'))
       setFocusArea('opex_only');
-    else if (requestText.includes('수선') || requestText.includes('유지보수') || requestText.includes('외주'))
+    else if (
+      requestText.includes('수선') ||
+      requestText.includes('유지보수') ||
+      requestText.includes('외주')
+    )
       setFocusArea('maintenance');
 
     if (runAnalysis && uploadedDocs.length > 0) {
       setAnalysisRunKey((k) => k + 1);
       setCurrentPage('analysis_loading');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToTop();
     }
   };
 
@@ -167,29 +187,40 @@ export default function App() {
     uploadedDocs.length > 0 ? uploadedDocs : getDefaultDocs();
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-[#172033] font-sans antialiased">
-      {/* Unified Enterprise Header */}
-      <Header
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-        uploadedCount={uploadedDocs.length}
-      />
+    <div className="h-screen w-full overflow-hidden flex flex-col bg-slate-50 text-[#172033] font-sans antialiased">
+      {/* Unified Enterprise Header (Pinned at top) */}
+      <div className="shrink-0">
+        <Header
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
+          uploadedCount={uploadedDocs.length}
+        />
+      </div>
 
-      {/* Main Content Area (Persistent Left LLM Prompt Sidebar on Upload / Analysis / Dashboard) */}
-      <main className="flex-1 flex flex-col">
+      {/* Main Content Area locked to remaining viewport height */}
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {currentPage === 'landing' && (
-          <LandingPage
-            onStartUpload={handleStartUpload}
-            onSelectPreset={handleSelectPreset}
-          />
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 min-h-0 overflow-y-auto flex flex-col"
+          >
+            <div className="flex-1">
+              <LandingPage
+                onStartUpload={handleStartUpload}
+                onSelectPreset={handleSelectPreset}
+              />
+            </div>
+            <Footer />
+          </div>
         )}
 
         {showPromptSidebar && (
-          <div className="flex-1 flex flex-col lg:flex-row">
+          <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
             <PromptSidebar
               currentPage={currentPage}
               uploadedDocs={uploadedDocs}
               analysisRequest={analysisRequest}
+              aidcSpecs={aidcSpecs}
               analysisResult={analysisResult}
               messages={chatMessages}
               onAddMessage={handleAddChatMessage}
@@ -197,55 +228,63 @@ export default function App() {
               onApplyRequest={handleApplyRequestFromSidebar}
             />
 
-            <div className="flex-1 min-w-0">
-              {currentPage === 'upload' && (
-                <UploadPage
-                  uploadedDocs={uploadedDocs}
-                  analysisRequest={analysisRequest}
-                  timeframe={timeframe}
-                  focusArea={focusArea}
-                  onAddDocs={handleAddDocs}
-                  onRemoveDoc={handleRemoveDoc}
-                  onClearDocs={handleClearDocs}
-                  onChangeAnalysisRequest={setAnalysisRequest}
-                  onChangeTimeframe={setTimeframe}
-                  onChangeFocusArea={setFocusArea}
-                  onStartAnalysis={handleStartAnalysis}
-                  onBackToLanding={() => handleNavigate('landing')}
-                />
-              )}
+            <div
+              ref={scrollContainerRef}
+              className="flex-1 min-w-0 min-h-0 overflow-y-auto flex flex-col"
+            >
+              <div className="flex-1">
+                {currentPage === 'upload' && (
+                  <UploadPage
+                    uploadedDocs={uploadedDocs}
+                    analysisRequest={analysisRequest}
+                    timeframe={timeframe}
+                    focusArea={focusArea}
+                    aidcSpecs={aidcSpecs}
+                    onAddDocs={handleAddDocs}
+                    onRemoveDoc={handleRemoveDoc}
+                    onClearDocs={handleClearDocs}
+                    onChangeAnalysisRequest={setAnalysisRequest}
+                    onChangeTimeframe={setTimeframe}
+                    onChangeFocusArea={setFocusArea}
+                    onChangeAidcSpecs={setAidcSpecs}
+                    onStartAnalysis={handleStartAnalysis}
+                    onBackToLanding={() => handleNavigate('landing')}
+                  />
+                )}
 
-              {currentPage === 'analysis_loading' && (
-                <AnalysisLoadingPage
-                  uploadedDocs={activeDocs}
-                  analysisRequest={analysisRequest}
-                  timeframe={timeframe}
-                  focusArea={focusArea}
-                  analysisRunKey={analysisRunKey}
-                  onAnalysisComplete={handleAnalysisComplete}
-                  onProceedToDashboard={handleProceedToDashboard}
-                  onBackToUpload={() => handleNavigate('upload')}
-                />
-              )}
+                {currentPage === 'analysis_loading' && (
+                  <AnalysisLoadingPage
+                    uploadedDocs={activeDocs}
+                    analysisRequest={analysisRequest}
+                    timeframe={timeframe}
+                    focusArea={focusArea}
+                    aidcSpecs={aidcSpecs}
+                    analysisRunKey={analysisRunKey}
+                    onAnalysisComplete={handleAnalysisComplete}
+                    onProceedToDashboard={handleProceedToDashboard}
+                    onBackToUpload={() => handleNavigate('upload')}
+                  />
+                )}
 
-              {currentPage === 'dashboard_preview' && (
-                <DashboardPreviewPage
-                  uploadedDocs={activeDocs}
-                  analysisRequest={analysisRequest}
-                  timeframe={timeframe}
-                  focusArea={focusArea}
-                  analysisResult={analysisResult}
-                  onNewAnalysis={handleNewAnalysis}
-                  onEditRequest={() => handleNavigate('upload')}
-                />
-              )}
+                {currentPage === 'dashboard_preview' && (
+                  <DashboardPreviewPage
+                    uploadedDocs={activeDocs}
+                    analysisRequest={analysisRequest}
+                    timeframe={timeframe}
+                    focusArea={focusArea}
+                    aidcSpecs={aidcSpecs}
+                    analysisResult={analysisResult}
+                    onNewAnalysis={handleNewAnalysis}
+                    onEditRequest={() => handleNavigate('upload')}
+                  />
+                )}
+              </div>
+
+              <Footer />
             </div>
           </div>
         )}
       </main>
-
-      {/* Unified Enterprise Footer */}
-      <Footer />
     </div>
   );
 }

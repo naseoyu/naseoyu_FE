@@ -11,12 +11,14 @@ import {
   FileCheck,
   CheckCircle2,
   MessageSquareText,
+  Server,
 } from 'lucide-react';
 import {
   UploadedDataCenterDoc,
   PresetSampleDoc,
   AnalysisTimeframe,
   AnalysisFocusArea,
+  AidcProjectSpecs,
 } from '../types';
 import { SAMPLE_DATA_CENTER_PRESETS } from '../data/costTaxonomyData';
 
@@ -25,12 +27,14 @@ interface UploadPageProps {
   analysisRequest: string;
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
+  aidcSpecs: AidcProjectSpecs;
   onAddDocs: (docs: UploadedDataCenterDoc[]) => void;
   onRemoveDoc: (docId: string) => void;
   onClearDocs: () => void;
   onChangeAnalysisRequest: (value: string) => void;
   onChangeTimeframe: (value: AnalysisTimeframe) => void;
   onChangeFocusArea: (value: AnalysisFocusArea) => void;
+  onChangeAidcSpecs: (specs: AidcProjectSpecs) => void;
   onStartAnalysis: () => void;
   onBackToLanding: () => void;
 }
@@ -57,23 +61,87 @@ const FOCUS_OPTIONS: Array<{ value: AnalysisFocusArea; label: string }> = [
   { value: 'maintenance', label: '수선유지·외주 중점' },
 ];
 
+const DURATION_YEAR_STEPS = [
+  { years: 1, label: '1년', value: '1년 (12개월)' },
+  { years: 2, label: '2년', value: '2년 (24개월)' },
+  { years: 3, label: '3년', value: '3년 (36개월)' },
+  { years: 4, label: '4년', value: '4년 (48개월)' },
+  { years: 5, label: '5년(60개월)', value: '5년 (60개월)' },
+];
+
+const GPU_SYSTEM_OPTIONS = [
+  'NVIDIA HGX H100 (8-GPU)',
+  'NVIDIA HGX H200 (8-GPU)',
+  'NVIDIA GB200 NVL72',
+  'NVIDIA B200 / HGX B200',
+  'NVIDIA A100 (8-GPU)',
+  'AMD Instinct MI300X',
+];
+
+const STORAGE_CAPACITY_OPTIONS = [
+  '100 TB (All-Flash NVMe)',
+  '500 TB (All-Flash NVMe)',
+  '1 PB (Lustre / GPFS)',
+  '5 PB (AI Training Storage)',
+  '10 PB 이상 (Hyperscale)',
+];
+
+const DIA_BANDWIDTH_PRESETS = ['10 Gbps', '100 Gbps', '400 Gbps'];
+
 export const UploadPage: React.FC<UploadPageProps> = ({
   uploadedDocs,
   analysisRequest,
   timeframe,
   focusArea,
+  aidcSpecs,
   onAddDocs,
   onRemoveDoc,
   onClearDocs,
   onChangeAnalysisRequest,
   onChangeTimeframe,
   onChangeFocusArea,
+  onChangeAidcSpecs,
   onStartAnalysis,
   onBackToLanding,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCustomGpu, setIsCustomGpu] = useState(
+    Boolean(aidcSpecs.gpuSystemType && !GPU_SYSTEM_OPTIONS.includes(aidcSpecs.gpuSystemType))
+  );
+  const [isCustomStorage, setIsCustomStorage] = useState(
+    Boolean(aidcSpecs.storageCapacity && !STORAGE_CAPACITY_OPTIONS.includes(aidcSpecs.storageCapacity))
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const updateSpec = <K extends keyof AidcProjectSpecs>(
+    key: K,
+    value: AidcProjectSpecs[K]
+  ) => {
+    onChangeAidcSpecs({ ...aidcSpecs, [key]: value });
+  };
+
+  const getSelectedDurationYears = (durationText: string): number => {
+    const yearMatch = durationText.match(/(\d+(?:\.\d+)?)\s*년/);
+    if (yearMatch) {
+      return Math.min(5, Math.max(1, Math.round(Number(yearMatch[1]))));
+    }
+    const monthMatch = durationText.match(/(\d+)\s*개월/);
+    if (monthMatch) {
+      return Math.min(5, Math.max(1, Math.round(Number(monthMatch[1]) / 12)));
+    }
+    return 3;
+  };
+
+  const isDurationOverLimit = (() => {
+    const monthMatch = aidcSpecs.usageDuration.match(/(\d+)\s*개월/);
+    if (monthMatch && Number(monthMatch[1]) > 60) return true;
+    const yearMatch = aidcSpecs.usageDuration.match(/(\d+(?:\.\d+)?)\s*년/);
+    if (yearMatch && Number(yearMatch[1]) > 5) return true;
+    return false;
+  })();
+
+  const sliderYears = getSelectedDurationYears(aidcSpecs.usageDuration);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -217,7 +285,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   const totalBytes = uploadedDocs.reduce((sum, d) => sum + d.sizeBytes, 0);
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50 py-10 px-6 lg:px-10">
+    <div className="w-full min-h-full bg-slate-50 py-10 px-6 lg:px-10">
       <div className="max-w-[980px] mx-auto">
         {/* Navigation Breadcrumb */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
@@ -477,6 +545,279 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+
+        {/* AIDC Infrastructure & Operation Specifications Card */}
+        <div className="card-enterprise p-6 sm:p-8 mb-8 bg-white">
+          <div className="flex items-start gap-3 mb-6">
+            <div className="w-9 h-9 rounded-[10px] bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+              <Server className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#172033]">
+                AIDC 운영 및 인프라 사양 입력
+              </h2>
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                사용 시점, 기간, GPU 시스템, 스토리지 용량 및 인터넷전용회선(DIA) 대역폭 조건을 입력하면 비용 산정에 함께 반영됩니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* 1. AIDC 사용 시점, GPU서버 가동 시점(Commencement date) */}
+            <div>
+              <label
+                htmlFor="aidc-commencement-date"
+                className="block text-xs font-semibold text-[#172033] mb-2"
+              >
+                1. AIDC 사용 시점, GPU서버 가동 시점(Commencement date)
+              </label>
+              <input
+                id="aidc-commencement-date"
+                type="date"
+                value={aidcSpecs.commencementDate}
+                onChange={(e) => updateSpec('commencementDate', e.target.value)}
+                className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] font-mono tabular-nums"
+              />
+            </div>
+
+            {/* 2. AIDC 사용 기간 */}
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <label
+                  htmlFor="aidc-usage-duration"
+                  className="block text-xs font-semibold text-[#172033]"
+                >
+                  2. AIDC 사용 기간
+                </label>
+                {aidcSpecs.usageDuration && (
+                  <span className="text-[11px] font-mono font-semibold text-[#2563EB] tabular-nums">
+                    {aidcSpecs.usageDuration}
+                  </span>
+                )}
+              </div>
+
+              <input
+                id="aidc-usage-duration"
+                type="text"
+                value={aidcSpecs.usageDuration}
+                onChange={(e) => updateSpec('usageDuration', e.target.value)}
+                placeholder="예: 3년 (36개월) · 최대 60개월"
+                className={`w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border rounded-[10px] focus:outline-none focus:bg-white focus:ring-1 placeholder:text-slate-400 ${
+                  isDurationOverLimit
+                    ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                    : 'border-slate-200 focus:border-[#2563EB] focus:ring-[#2563EB]'
+                }`}
+              />
+
+              {/* Year-based slider bar ending at 5년(60개월) with pixel-aligned ticks */}
+              <div className="mt-3 px-3.5 pt-3.5 pb-2.5 rounded-[10px] bg-slate-50 border border-slate-200/80">
+                <div className="mx-7">
+                  <div className="relative h-5 flex items-center">
+                    {/* Track background & active fill */}
+                    <div className="absolute inset-x-0 h-2 rounded-full bg-slate-200 pointer-events-none overflow-hidden">
+                      <div
+                        className="h-full bg-[#2563EB] transition-all duration-150"
+                        style={{
+                          width: `calc(8px + (100% - 16px) * ${(sliderYears - 1) / 4})`,
+                        }}
+                      />
+                    </div>
+
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={1}
+                      aria-label="AIDC 사용 기간 년수 선택 바 (1년~5년(60개월))"
+                      value={sliderYears}
+                      onChange={(e) => {
+                        const years = Number(e.target.value);
+                        updateSpec('usageDuration', `${years}년 (${years * 12}개월)`);
+                      }}
+                      className="relative z-10 w-full h-5 bg-transparent appearance-none cursor-pointer focus:outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#2563EB] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#2563EB] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-sm"
+                    />
+                  </div>
+
+                  {/* Labels positioned to match exact thumb center at each step */}
+                  <div className="relative h-8 mt-1">
+                    {DURATION_YEAR_STEPS.map((step) => {
+                      const isActive = aidcSpecs.usageDuration === step.value;
+                      const fraction = (step.years - 1) / 4;
+                      return (
+                        <button
+                          key={step.years}
+                          type="button"
+                          onClick={() => updateSpec('usageDuration', step.value)}
+                          style={{
+                            left: `calc(8px + (100% - 16px) * ${fraction})`,
+                          }}
+                          className="absolute top-0 -translate-x-1/2 flex flex-col items-center gap-0.5 cursor-pointer group"
+                        >
+                          <span
+                            className={`w-[2px] h-1.5 rounded-full transition-colors ${
+                              isActive
+                                ? 'bg-[#2563EB]'
+                                : 'bg-slate-300 group-hover:bg-slate-500'
+                            }`}
+                          />
+                          <span
+                            className={`text-[11px] font-mono tabular-nums whitespace-nowrap px-1.5 py-0.5 rounded-[5px] transition-colors ${
+                              isActive
+                                ? 'bg-blue-100 text-[#2563EB] font-bold'
+                                : 'text-slate-500 group-hover:text-[#172033]'
+                            }`}
+                          >
+                            {step.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+                ※ AIDC 사용 기간은 통상적인 GPU System 내용연수인 최대 60개월까지 입력 가능합니다.
+              </p>
+
+              {isDurationOverLimit && (
+                <p className="mt-1 text-[11px] font-semibold text-red-600">
+                  최대 60개월(5년) 이내로 입력해 주세요.
+                </p>
+              )}
+            </div>
+
+            {/* 3. 사용하고자 하는 GPU System 종류를 선택하시오. */}
+            <div>
+              <label
+                htmlFor="aidc-gpu-system"
+                className="block text-xs font-semibold text-[#172033] mb-2"
+              >
+                3. 사용하고자 하는 GPU System 종류를 선택하시오.
+              </label>
+              <select
+                id="aidc-gpu-system"
+                value={
+                  isCustomGpu
+                    ? '__custom__'
+                    : GPU_SYSTEM_OPTIONS.includes(aidcSpecs.gpuSystemType)
+                    ? aidcSpecs.gpuSystemType
+                    : ''
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '__custom__') {
+                    setIsCustomGpu(true);
+                    updateSpec('gpuSystemType', '');
+                  } else {
+                    setIsCustomGpu(false);
+                    updateSpec('gpuSystemType', val);
+                  }
+                }}
+                className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]"
+              >
+                <option value="">GPU System 종류를 선택하세요</option>
+                {GPU_SYSTEM_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+                <option value="__custom__">기타 (직접 입력)</option>
+              </select>
+              {isCustomGpu && (
+                <input
+                  type="text"
+                  value={aidcSpecs.gpuSystemType}
+                  onChange={(e) => updateSpec('gpuSystemType', e.target.value)}
+                  placeholder="GPU System 종류를 직접 입력하세요"
+                  className="mt-2 w-full px-3.5 py-2 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
+                />
+              )}
+            </div>
+
+            {/* 4. Storage 구축 용량을 선택하시오. */}
+            <div>
+              <label
+                htmlFor="aidc-storage-capacity"
+                className="block text-xs font-semibold text-[#172033] mb-2"
+              >
+                4. Storage 구축 용량을 선택하시오.
+              </label>
+              <select
+                id="aidc-storage-capacity"
+                value={
+                  isCustomStorage
+                    ? '__custom__'
+                    : STORAGE_CAPACITY_OPTIONS.includes(aidcSpecs.storageCapacity)
+                    ? aidcSpecs.storageCapacity
+                    : ''
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '__custom__') {
+                    setIsCustomStorage(true);
+                    updateSpec('storageCapacity', '');
+                  } else {
+                    setIsCustomStorage(false);
+                    updateSpec('storageCapacity', val);
+                  }
+                }}
+                className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]"
+              >
+                <option value="">Storage 구축 용량을 선택하세요</option>
+                {STORAGE_CAPACITY_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+                <option value="__custom__">기타 (직접 입력)</option>
+              </select>
+              {isCustomStorage && (
+                <input
+                  type="text"
+                  value={aidcSpecs.storageCapacity}
+                  onChange={(e) => updateSpec('storageCapacity', e.target.value)}
+                  placeholder="Storage 구축 용량을 직접 입력하세요 (예: 2.5 PB)"
+                  className="mt-2 w-full px-3.5 py-2 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
+                />
+              )}
+            </div>
+
+            {/* 5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth 를 입력하시오. */}
+            <div className="md:col-span-2">
+              <label
+                htmlFor="aidc-dia-bandwidth"
+                className="block text-xs font-semibold text-[#172033] mb-2"
+              >
+                5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth 를 입력하시오.
+              </label>
+              <input
+                id="aidc-dia-bandwidth"
+                type="text"
+                value={aidcSpecs.diaBandwidth}
+                onChange={(e) => updateSpec('diaBandwidth', e.target.value)}
+                placeholder="예: 100 Gbps (또는 400G 이중화)"
+                className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
+              />
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {DIA_BANDWIDTH_PRESETS.map((bw) => (
+                  <button
+                    key={bw}
+                    type="button"
+                    onClick={() => updateSpec('diaBandwidth', bw)}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-[6px] border transition-colors cursor-pointer ${
+                      aidcSpecs.diaBandwidth === bw
+                        ? 'bg-blue-50 text-[#2563EB] border-blue-200 font-semibold'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {bw}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

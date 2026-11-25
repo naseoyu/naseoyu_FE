@@ -52,6 +52,7 @@ export type AnalysisStepId = 1 | 2 | 3;
 export interface AnalysisStepInfo {
   step: AnalysisStepId;
   title: string;
+  subtitle: string;
   description: string;
   status: 'pending' | 'in_progress' | 'completed';
 }
@@ -72,6 +73,15 @@ export interface UploadedDataCenterDoc {
 // User Analysis Scope Options
 export type AnalysisTimeframe = 'all' | '1y' | '3y' | '5y';
 export type AnalysisFocusArea = 'all' | 'power' | 'depreciation' | 'opex_only' | 'maintenance';
+
+// User-entered AIDC Infrastructure & Operation Specifications on Upload Page
+export interface AidcProjectSpecs {
+  commencementDate: string; // 1. AIDC 사용 시점, GPU서버 가동 시점(Commencement date)
+  usageDuration: string;    // 2. AIDC 사용 기간
+  gpuSystemType: string;    // 3. 사용하고자 하는 GPU System 종류를 선택하시오.
+  storageCapacity: string;  // 4. Storage 구축 용량을 선택하시오.
+  diaBandwidth: string;     // 5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth 를 입력하시오.
+}
 
 // Custom LLM Analysis Result returned by /api/analyze
 export interface CustomAnalysisResult {

@@ -11,18 +11,21 @@ import {
   Sparkles,
   Check,
   RefreshCw,
+  GripVertical,
 } from 'lucide-react';
 import {
   ServicePage,
   UploadedDataCenterDoc,
   CustomAnalysisResult,
   PromptChatMessage,
+  AidcProjectSpecs,
 } from '../../types';
 
 interface PromptSidebarProps {
   currentPage: ServicePage;
   uploadedDocs: UploadedDataCenterDoc[];
   analysisRequest: string;
+  aidcSpecs?: AidcProjectSpecs;
   analysisResult: CustomAnalysisResult | null;
   messages: PromptChatMessage[];
   onAddMessage: (msg: PromptChatMessage) => void;
@@ -37,10 +40,15 @@ const QUICK_PROMPTS = [
   '업로드한 서류들의 주요 비용 항목을 비교해줘',
 ];
 
+const DEFAULT_SIDEBAR_WIDTH = 360;
+const MIN_SIDEBAR_WIDTH = 280;
+const MAX_SIDEBAR_WIDTH = 680;
+
 export const PromptSidebar: React.FC<PromptSidebarProps> = ({
   currentPage,
   uploadedDocs,
   analysisRequest,
+  aidcSpecs,
   analysisResult,
   messages,
   onAddMessage,
@@ -52,7 +60,72 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [appliedMessageId, setAppliedMessageId] = useState<string | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(DEFAULT_SIDEBAR_WIDTH);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!dragStateRef.current) return;
+      const delta = e.clientX - dragStateRef.current.startX;
+      const dynamicMax = Math.min(
+        MAX_SIDEBAR_WIDTH,
+        Math.max(MIN_SIDEBAR_WIDTH, Math.floor(window.innerWidth * 0.55))
+      );
+      const nextWidth = Math.min(
+        dynamicMax,
+        Math.max(MIN_SIDEBAR_WIDTH, dragStateRef.current.startWidth + delta)
+      );
+      setSidebarWidth(nextWidth);
+    };
+
+    const handlePointerUp = () => {
+      dragStateRef.current = null;
+      setIsResizing(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [isResizing]);
+
+  const handleStartResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragStateRef.current = {
+      startX: e.clientX,
+      startWidth: sidebarWidth,
+    };
+    setIsResizing(true);
+  };
+
+  const handleResizeKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const dynamicMax = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(MIN_SIDEBAR_WIDTH, Math.floor(window.innerWidth * 0.55))
+    );
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setSidebarWidth((w) => Math.min(dynamicMax, w + 20));
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setSidebarWidth((w) => Math.max(MIN_SIDEBAR_WIDTH, w - 20));
+    }
+  };
 
   const pageLabel =
     currentPage === 'upload'
@@ -104,6 +177,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
             base64Data: d.base64Data,
           })),
           analysisRequest,
+          aidcSpecs,
           analysisResult,
           currentPage: pageLabel,
         }),
@@ -243,6 +317,24 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
             <span className="line-clamp-2">{analysisRequest}</span>
           </div>
         )}
+
+        {aidcSpecs &&
+          (aidcSpecs.commencementDate ||
+            aidcSpecs.usageDuration ||
+            aidcSpecs.gpuSystemType ||
+            aidcSpecs.storageCapacity ||
+            aidcSpecs.diaBandwidth) && (
+            <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600 space-y-0.5">
+              <span className="font-semibold text-slate-700 block">AIDC 입력 조건</span>
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-slate-500">
+                {aidcSpecs.commencementDate && <span>가동: {aidcSpecs.commencementDate}</span>}
+                {aidcSpecs.usageDuration && <span>기간: {aidcSpecs.usageDuration}</span>}
+                {aidcSpecs.gpuSystemType && <span>GPU: {aidcSpecs.gpuSystemType}</span>}
+                {aidcSpecs.storageCapacity && <span>Storage: {aidcSpecs.storageCapacity}</span>}
+                {aidcSpecs.diaBandwidth && <span>DIA: {aidcSpecs.diaBandwidth}</span>}
+              </div>
+            </div>
+          )}
       </div>
 
       {/* Conversation Scroll Area */}
@@ -429,9 +521,51 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
 
   return (
     <>
-      {/* Desktop Persistent Left Sidebar */}
-      <aside className="hidden lg:flex lg:w-[360px] xl:w-[380px] shrink-0 border-r border-slate-200 bg-white lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] z-20 flex-col">
+      {/* Desktop Persistent Left Sidebar (Horizontally Resizable, Fixed Viewport Height) */}
+      <aside
+        style={{ width: `${sidebarWidth}px` }}
+        className="hidden lg:flex relative shrink-0 border-r border-slate-200 bg-white h-full z-20 flex-col overflow-hidden"
+      >
         {sidebarContent}
+
+        {/* Vertical Drag Handle to Resize Width */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="LLM 프롬프트 창 가로 크기 조절"
+          aria-valuemin={MIN_SIDEBAR_WIDTH}
+          aria-valuemax={MAX_SIDEBAR_WIDTH}
+          aria-valuenow={sidebarWidth}
+          tabIndex={0}
+          onPointerDown={handleStartResize}
+          onDoubleClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+          onKeyDown={handleResizeKeyDown}
+          title="드래그하여 프롬프트 창 가로 크기 조절 (더블클릭 시 기본 크기 복원)"
+          className={`group absolute top-0 right-0 bottom-0 w-2 cursor-col-resize z-30 flex items-center justify-center transition-colors focus:outline-none ${
+            isResizing ? 'bg-blue-500/20' : 'hover:bg-blue-500/10'
+          }`}
+        >
+          <div
+            className={`w-[3px] h-12 rounded-full transition-colors flex items-center justify-center ${
+              isResizing
+                ? 'bg-[#2563EB]'
+                : 'bg-slate-300 group-hover:bg-[#2563EB]'
+            }`}
+          />
+          <GripVertical
+            className={`w-3 h-3 absolute pointer-events-none transition-opacity ${
+              isResizing
+                ? 'opacity-100 text-[#2563EB]'
+                : 'opacity-0 group-hover:opacity-100 text-[#2563EB]'
+            }`}
+          />
+        </div>
+
+        {isResizing && (
+          <div className="absolute top-3 right-3 z-40 px-2 py-0.5 rounded-[6px] bg-[#172033] text-white text-[10px] font-mono tabular-nums pointer-events-none shadow-sm">
+            {sidebarWidth}px
+          </div>
+        )}
       </aside>
 
       {/* Mobile / Tablet Floating Launcher & Slide-over Drawer */}

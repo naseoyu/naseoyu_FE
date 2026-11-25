@@ -14,6 +14,7 @@ import {
   CustomAnalysisResult,
   AnalysisTimeframe,
   AnalysisFocusArea,
+  AidcProjectSpecs,
 } from '../types';
 import { CostCategoryTaxonomy } from '../components/cost/CostCategoryTaxonomy';
 
@@ -22,6 +23,7 @@ interface DashboardPreviewPageProps {
   analysisRequest: string;
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
+  aidcSpecs: AidcProjectSpecs;
   analysisResult: CustomAnalysisResult | null;
   onNewAnalysis: () => void;
   onEditRequest: () => void;
@@ -47,6 +49,7 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
   analysisRequest,
   timeframe,
   focusArea,
+  aidcSpecs,
   analysisResult,
   onNewAnalysis,
   onEditRequest,
@@ -64,7 +67,7 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
     `${TIMEFRAME_LABELS[timeframe]} · ${FOCUS_LABELS[focusArea]}`;
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50 py-10 px-6 lg:px-10">
+    <div className="w-full min-h-full bg-slate-50 py-10 px-6 lg:px-10">
       <div className="max-w-[1100px] mx-auto">
         {/* Top Control Bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200 mb-8">
@@ -132,8 +135,8 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
           </div>
         )}
 
-        {/* Active Request Banner */}
-        <div className="mb-8 p-5 rounded-[12px] bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Active Request & AIDC Specs Banner */}
+        <div className="mb-8 p-5 rounded-[12px] bg-white border border-slate-200 space-y-4">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-[8px] bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
               <MessageSquareText className="w-4 h-4" />
@@ -151,6 +154,45 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
               </p>
             </div>
           </div>
+
+          {(aidcSpecs.commencementDate ||
+            aidcSpecs.usageDuration ||
+            aidcSpecs.gpuSystemType ||
+            aidcSpecs.storageCapacity ||
+            aidcSpecs.diaBandwidth) && (
+            <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+              <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
+                <span className="block text-[11px] text-slate-500">가동 시점</span>
+                <span className="font-semibold text-[#172033] font-mono tabular-nums">
+                  {aidcSpecs.commencementDate || '미입력'}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
+                <span className="block text-[11px] text-slate-500">AIDC 사용 기간</span>
+                <span className="font-semibold text-[#172033]">
+                  {aidcSpecs.usageDuration || '미입력'}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
+                <span className="block text-[11px] text-slate-500">GPU System</span>
+                <span className="font-semibold text-[#172033]">
+                  {aidcSpecs.gpuSystemType || '미입력'}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
+                <span className="block text-[11px] text-slate-500">Storage 용량</span>
+                <span className="font-semibold text-[#172033]">
+                  {aidcSpecs.storageCapacity || '미입력'}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
+                <span className="block text-[11px] text-slate-500">DIA Bandwidth</span>
+                <span className="font-semibold text-[#172033]">
+                  {aidcSpecs.diaBandwidth || '미입력'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tailored LLM Analysis Result Sections (when /api/analyze returned live output) */}

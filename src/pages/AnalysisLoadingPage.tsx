@@ -15,6 +15,7 @@ import {
   AnalysisTimeframe,
   AnalysisFocusArea,
   CustomAnalysisResult,
+  AidcProjectSpecs,
 } from '../types';
 
 interface AnalysisLoadingPageProps {
@@ -22,6 +23,7 @@ interface AnalysisLoadingPageProps {
   analysisRequest: string;
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
+  aidcSpecs: AidcProjectSpecs;
   analysisRunKey: number;
   onAnalysisComplete: (result: CustomAnalysisResult | null) => void;
   onProceedToDashboard: () => void;
@@ -48,6 +50,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   analysisRequest,
   timeframe,
   focusArea,
+  aidcSpecs,
   analysisRunKey,
   onAnalysisComplete,
   onProceedToDashboard,
@@ -68,6 +71,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     {
       step: 1,
       title: 'STEP 1. 문서 읽기 및 AIDC 운영 데이터 확인',
+      subtitle: 'Document Ingestion & AIDC Data Check',
       description: `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 추출하고 AIDC 운영 데이터 및 "${TIMEFRAME_LABELS[timeframe]} / ${FOCUS_LABELS[focusArea]}" 분석 조건을 확인합니다.`,
       status:
         currentStep > 1 || isCompleted
@@ -79,6 +83,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     {
       step: 2,
       title: 'STEP 2. 비용 항목 분석 및 운영비 예측',
+      subtitle: 'Cost Breakdown & OPEX Forecasting',
       description:
         '사용자 요청 사항에 해당하는 핵심 비용 항목(전력료, 감가상각비, 외주용역비 등)을 분석하여 기간별 운영비를 예측합니다.',
       status:
@@ -91,6 +96,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     {
       step: 3,
       title: 'STEP 3. 비용 최적화 방안 및 추천 결과 생성',
+      subtitle: 'Cost Optimization & Recommendation Synthesis',
       description:
         '분석된 비용 구조를 바탕으로 정량적 절감 포인트와 맞춤형 비용 최적화 추천 결과를 생성합니다.',
       status: isCompleted
@@ -156,6 +162,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
           analysisRequest,
           timeframe: TIMEFRAME_LABELS[timeframe],
           focusArea: FOCUS_LABELS[focusArea],
+          aidcSpecs,
         }),
       });
 
@@ -178,7 +185,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
           : '분석 서버와 연결할 수 없습니다.'
       );
     }
-  }, [uploadedDocs, analysisRequest, timeframe, focusArea, onAnalysisComplete]);
+  }, [uploadedDocs, analysisRequest, timeframe, focusArea, aidcSpecs, onAnalysisComplete]);
 
   useEffect(() => {
     void runAnalysis();
@@ -187,7 +194,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   const totalPages = uploadedDocs.reduce((sum, d) => sum + d.pageCount, 0);
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50 py-10 px-6 lg:px-10">
+    <div className="w-full min-h-full bg-slate-50 py-10 px-6 lg:px-10">
       <div className="max-w-[980px] mx-auto">
         {/* Top Breadcrumb */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -419,6 +426,10 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
                       </p>
                     </div>
                   </div>
+
+                  <span className="text-[11px] font-mono text-slate-400 shrink-0 hidden sm:block">
+                    {s.subtitle}
+                  </span>
                 </div>
               </div>
             );

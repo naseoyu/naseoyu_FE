@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -113,11 +114,19 @@ async function startServer() {
         analysisRequest = '',
         timeframe = 'all',
         focusArea = 'all',
+        aidcSpecs,
       } = req.body as {
         documents: IncomingDocPayload[];
         analysisRequest?: string;
         timeframe?: string;
         focusArea?: string;
+        aidcSpecs?: {
+          commencementDate?: string;
+          usageDuration?: string;
+          gpuSystemType?: string;
+          storageCapacity?: string;
+          diaBandwidth?: string;
+        };
       };
 
       if (!Array.isArray(documents) || documents.length === 0) {
@@ -141,12 +150,23 @@ async function startServer() {
         return `- 문서 ${idx + 1}: ${doc.name} (유형: ${doc.sourceType === 'preset_sample' ? '표준 샘플 규격' : '사용자 업로드 PDF'}, 약 ${doc.pageCount}페이지, 용량 ${(doc.sizeBytes / (1024 * 1024)).toFixed(2)}MB)\n  요약/메타정보: ${doc.documentSummary || '업로드된 PDF 원본 참조'}`;
       });
 
+      const specsBlock = aidcSpecs
+        ? `
+[사용자 입력 AIDC 인프라 및 운영 조건]
+1. AIDC 사용 시점, GPU서버 가동 시점(Commencement date): ${aidcSpecs.commencementDate || '미입력'}
+2. AIDC 사용 기간: ${aidcSpecs.usageDuration || '미입력'}
+3. 사용하고자 하는 GPU System 종류: ${aidcSpecs.gpuSystemType || '미입력'}
+4. Storage 구축 용량: ${aidcSpecs.storageCapacity || '미입력'}
+5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth: ${aidcSpecs.diaBandwidth || '미입력'}
+`
+        : '';
+
       const promptText = `
 다음은 사용자가 업로드한 데이터센터 비용·운영 관련 문서 목록과 맞춤 분석 요청 사항입니다.
 
 [업로드된 문서 목록 (${documents.length}건)]
 ${docDescriptions.join('\n')}
-
+${specsBlock}
 [사용자 맞춤 분석 요청 사항]
 - 직접 입력 요청: "${analysisRequest.trim() || '업로드된 문서를 바탕으로 11대 표준 비용 항목 전반과 최적화 방안을 분석해줘'}"
 - 선택된 분석 기간 조건: ${timeframe}
@@ -289,6 +309,7 @@ ${CORE_TAXONOMY_CONTEXT}
         analysisRequest = '',
         analysisResult = null,
         currentPage = 'upload',
+        aidcSpecs,
       } = req.body as {
         message: string;
         history?: Array<{ role: 'user' | 'assistant'; content: string }>;
@@ -296,6 +317,13 @@ ${CORE_TAXONOMY_CONTEXT}
         analysisRequest?: string;
         analysisResult?: Record<string, unknown> | null;
         currentPage?: string;
+        aidcSpecs?: {
+          commencementDate?: string;
+          usageDuration?: string;
+          gpuSystemType?: string;
+          storageCapacity?: string;
+          diaBandwidth?: string;
+        };
       };
 
       if (!message || !message.trim()) {
@@ -327,12 +355,22 @@ ${CORE_TAXONOMY_CONTEXT}
         .map((m) => `${m.role === 'user' ? '사용자' : '어시스턴트'}: ${m.content}`)
         .join('\n');
 
+      const chatSpecsBlock = aidcSpecs
+        ? `
+- 사용자 입력 AIDC 조건:
+  1) AIDC 사용 시점, GPU서버 가동 시점(Commencement date): ${aidcSpecs.commencementDate || '미입력'}
+  2) AIDC 사용 기간: ${aidcSpecs.usageDuration || '미입력'}
+  3) GPU System 종류: ${aidcSpecs.gpuSystemType || '미입력'}
+  4) Storage 구축 용량: ${aidcSpecs.storageCapacity || '미입력'}
+  5) 인터넷전용회선(DIA) Bandwidth: ${aidcSpecs.diaBandwidth || '미입력'}`
+        : '';
+
       const contextText = `
 [현재 워크스페이스 상태]
 - 현재 화면: ${currentPage}
 - 연결된 문서 (${documents.length}건):
 ${docSummaryLines.length > 0 ? docSummaryLines.join('\n') : '없음 (아직 문서가 업로드되지 않았습니다)'}
-- 현재 설정된 분석 요청 사항: "${analysisRequest || '미입력'}"
+- 현재 설정된 분석 요청 사항: "${analysisRequest || '미입력'}"${chatSpecsBlock}
 ${analysisResult ? `- 현재 대시보드 분석 결과 요약: ${JSON.stringify(analysisResult).slice(0, 3000)}` : ''}
 
 ${CORE_TAXONOMY_CONTEXT}
