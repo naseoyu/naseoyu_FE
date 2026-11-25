@@ -12,6 +12,8 @@ import {
   Check,
   RefreshCw,
   GripVertical,
+  Bot,
+  User,
 } from 'lucide-react';
 import {
   ServicePage,
@@ -25,6 +27,7 @@ interface PromptSidebarProps {
   currentPage: ServicePage;
   uploadedDocs: UploadedDataCenterDoc[];
   analysisRequest: string;
+  requestMemo?: string;
   aidcSpecs?: AidcProjectSpecs;
   analysisResult: CustomAnalysisResult | null;
   messages: PromptChatMessage[];
@@ -48,6 +51,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
   currentPage,
   uploadedDocs,
   analysisRequest,
+  requestMemo = '',
   aidcSpecs,
   analysisResult,
   messages,
@@ -177,6 +181,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
             base64Data: d.base64Data,
           })),
           analysisRequest,
+          requestMemo,
           aidcSpecs,
           analysisResult,
           currentPage: pageLabel,
@@ -246,22 +251,56 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
     return null;
   };
 
+  const formatMessageTime = (ts: Date | string) => {
+    const d = ts instanceof Date ? ts : new Date(ts);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatDateDivider = (ts: Date | string) => {
+    const d = ts instanceof Date ? ts : new Date(ts);
+    if (Number.isNaN(d.getTime())) return '오늘';
+    const now = new Date();
+    const isToday =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    if (isToday) return '오늘';
+    return d.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white">
-      {/* Sidebar Header */}
-      <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
-        <div className="min-w-0">
-          <h2 className="text-sm font-bold text-[#172033] truncate">
-            LLM 분석 프롬프트
-          </h2>
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5 tabular-nums">
-            <span>서류 {uploadedDocs.length}건</span>
-            <span aria-hidden="true">·</span>
-            <span className="truncate">{pageLabel} 단계</span>
+      {/* Messenger Sidebar Header */}
+      <div className="px-4 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0 bg-white">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="relative w-8 h-8 rounded-full bg-blue-50 border border-blue-200 text-[#2563EB] flex items-center justify-center shrink-0">
+            <Bot className="w-4 h-4" />
+            <span
+              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"
+              aria-hidden="true"
+            />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-[#172033] truncate">
+              AI FinOps 메신저
+            </h2>
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5 tabular-nums">
+              <span>서류 {uploadedDocs.length}건</span>
+              <span aria-hidden="true">·</span>
+              <span className="truncate">{pageLabel} 단계</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {messages.length > 0 && (
             <button
               type="button"
@@ -284,7 +323,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
       </div>
 
       {/* Active Context Strip */}
-      <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 text-xs shrink-0 space-y-2">
+      <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs shrink-0 space-y-1.5">
         <div className="flex items-center justify-between text-[11px] text-slate-500">
           <span className="font-semibold text-slate-700">연결된 분석 컨텍스트</span>
           <span className="tabular-nums font-mono">{uploadedDocs.length} PDF</span>
@@ -318,6 +357,13 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
           </div>
         )}
 
+        {requestMemo.trim() && (
+          <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600">
+            <span className="font-semibold text-amber-700">요약 메모: </span>
+            <span className="line-clamp-2">{requestMemo}</span>
+          </div>
+        )}
+
         {aidcSpecs &&
           (aidcSpecs.commencementDate ||
             aidcSpecs.usageDuration ||
@@ -337,22 +383,40 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
           )}
       </div>
 
-      {/* Conversation Scroll Area */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+      {/* Messenger Conversation Scroll Area */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 bg-slate-100/70 space-y-3">
         {messages.length === 0 ? (
           <div className="space-y-4">
-            <div className="p-4 rounded-[10px] bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed">
-              <p className="font-semibold text-[#172033] mb-1">
-                언제든 LLM에게 분석을 요청하세요
-              </p>
-              <p>
-                서류 업로드, LLM 분석, 비용 분석 결과 어느 화면에서든 원하는 기간·비용 항목 조건을 질문하거나 분석 지시를 내릴 수 있습니다.
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-[10px] font-medium text-slate-400">오늘</span>
+              <div className="flex-1 h-px bg-slate-200" />
             </div>
 
-            <div className="space-y-2">
+            {/* Initial Assistant Welcome Bubble */}
+            <div className="flex items-start gap-2">
+              <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-[#2563EB] flex items-center justify-center shrink-0 mt-0.5">
+                <Bot className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <span className="block text-[11px] font-semibold text-slate-600">
+                  AI FinOps 어시스턴트
+                </span>
+                <div className="inline-block max-w-[92%] px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-white border border-slate-200 text-xs text-[#172033] leading-relaxed shadow-xs">
+                  <p className="font-semibold mb-1">
+                    무엇을 분석해 드릴까요?
+                  </p>
+                  <p className="text-slate-600">
+                    서류 업로드, LLM 분석, 비용 분석 결과 어느 화면에서든 원하는 기간이나 비용 항목 조건을 메신저처럼 질문하거나 지시해 주세요.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Reply Prompts */}
+            <div className="pl-9 space-y-1.5">
               <p className="text-[11px] font-semibold text-slate-500">
-                자주 쓰는 분석 프롬프트
+                빠른 질문 선택
               </p>
               <div className="space-y-1.5">
                 {QUICK_PROMPTS.map((q) => (
@@ -360,7 +424,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
                     key={q}
                     type="button"
                     onClick={() => sendPrompt(q)}
-                    className="w-full text-left px-3 py-2.5 text-xs text-slate-700 bg-white border border-slate-200 rounded-[8px] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors cursor-pointer leading-snug"
+                    className="w-full text-left px-3 py-2 text-xs text-slate-700 bg-white border border-slate-200 rounded-xl hover:border-[#2563EB] hover:text-[#2563EB] transition-colors cursor-pointer leading-snug shadow-2xs"
                   >
                     {q}
                   </button>
@@ -371,37 +435,107 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
         ) : (
           <>
             {messages.map((msg, idx) => {
+              const prevMsg = idx > 0 ? messages[idx - 1] : null;
+              const currentDateLabel = formatDateDivider(msg.timestamp);
+              const prevDateLabel = prevMsg ? formatDateDivider(prevMsg.timestamp) : null;
+              const showDateDivider = idx === 0 || currentDateLabel !== prevDateLabel;
+              const isConsecutiveSameRole =
+                !showDateDivider && prevMsg?.role === msg.role;
+              const timeLabel = formatMessageTime(msg.timestamp);
+
+              const dateDividerEl = showDateDivider ? (
+                <div className="flex items-center gap-3 py-1">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-[10px] font-medium text-slate-400">
+                    {currentDateLabel}
+                  </span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+              ) : null;
+
               if (msg.role === 'user') {
                 return (
-                  <div key={msg.id} className="flex justify-end">
-                    <div className="max-w-[88%] px-3.5 py-2.5 rounded-[10px] bg-[#172033] text-white text-xs leading-relaxed whitespace-pre-wrap">
-                      {msg.content}
+                  <React.Fragment key={msg.id}>
+                    {dateDividerEl}
+                    <div
+                      className={`flex justify-end items-start gap-2 ${
+                        isConsecutiveSameRole ? 'mt-1' : 'mt-3'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1 flex flex-col items-end">
+                        {!isConsecutiveSameRole && (
+                          <span className="text-[11px] font-semibold text-slate-600 mb-1 pr-0.5">
+                            나
+                          </span>
+                        )}
+                        <div className="flex items-end justify-end gap-1.5 max-w-full">
+                          {timeLabel && (
+                            <span className="text-[10px] text-slate-400 tabular-nums shrink-0 pb-0.5">
+                              {timeLabel}
+                            </span>
+                          )}
+                          <div className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-sm bg-[#2563EB] text-white text-xs leading-relaxed whitespace-pre-wrap break-words shadow-xs">
+                            {msg.content}
+                          </div>
+                        </div>
+                      </div>
+                      {!isConsecutiveSameRole ? (
+                        <div className="w-7 h-7 rounded-full bg-[#172033] text-white flex items-center justify-center shrink-0 mt-0.5">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
+                      ) : (
+                        <div className="w-7 shrink-0" aria-hidden="true" />
+                      )}
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               }
 
               if (msg.role === 'error') {
                 return (
-                  <div
-                    key={msg.id}
-                    className="p-3.5 rounded-[10px] bg-red-50 border border-red-200 text-xs text-red-700 space-y-2"
-                  >
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
-                      <p className="leading-relaxed">{msg.content}</p>
+                  <React.Fragment key={msg.id}>
+                    {dateDividerEl}
+                    <div
+                      className={`flex items-start gap-2 ${
+                        isConsecutiveSameRole ? 'mt-1' : 'mt-3'
+                      }`}
+                    >
+                      {!isConsecutiveSameRole ? (
+                        <div className="w-7 h-7 rounded-full bg-red-100 border border-red-200 text-red-600 flex items-center justify-center shrink-0 mt-0.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        </div>
+                      ) : (
+                        <div className="w-7 shrink-0" aria-hidden="true" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        {!isConsecutiveSameRole && (
+                          <span className="block text-[11px] font-semibold text-red-700 mb-1">
+                            시스템 안내
+                          </span>
+                        )}
+                        <div className="flex items-end gap-1.5 max-w-full">
+                          <div className="max-w-[88%] p-3 rounded-2xl rounded-tl-sm bg-red-50 border border-red-200 text-xs text-red-700 space-y-2 shadow-xs">
+                            <p className="leading-relaxed break-words">{msg.content}</p>
+                            {lastFailedPrompt && (
+                              <button
+                                type="button"
+                                onClick={() => sendPrompt(lastFailedPrompt)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-red-700 bg-white border border-red-200 rounded-[6px] hover:bg-red-100/50 transition-colors cursor-pointer"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                <span>다시 시도</span>
+                              </button>
+                            )}
+                          </div>
+                          {timeLabel && (
+                            <span className="text-[10px] text-slate-400 tabular-nums shrink-0 pb-0.5">
+                              {timeLabel}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    {lastFailedPrompt && (
-                      <button
-                        type="button"
-                        onClick={() => sendPrompt(lastFailedPrompt)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-red-700 bg-white border border-red-200 rounded-[6px] hover:bg-red-100/50 transition-colors cursor-pointer"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>다시 시도</span>
-                      </button>
-                    )}
-                  </div>
+                  </React.Fragment>
                 );
               }
 
@@ -409,50 +543,101 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
               const isApplied = appliedMessageId === msg.id;
 
               return (
-                <div key={msg.id} className="space-y-1.5">
-                  <div className="p-3.5 rounded-[10px] bg-slate-50 border border-slate-200 text-xs text-[#172033] leading-relaxed whitespace-pre-wrap">
-                    {msg.content}
-                  </div>
-                  {precedingPrompt && (
-                    <div className="flex items-center gap-2 pl-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleApplyFromMessage(msg.id, precedingPrompt, false)
-                        }
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 rounded-[6px] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        {isApplied ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-600" />
-                            <span>반영됨</span>
-                          </>
-                        ) : (
-                          <span>분석 요청사항에 반영</span>
+                <React.Fragment key={msg.id}>
+                  {dateDividerEl}
+                  <div
+                    className={`flex items-start gap-2 ${
+                      isConsecutiveSameRole ? 'mt-1' : 'mt-3'
+                    }`}
+                  >
+                    {!isConsecutiveSameRole ? (
+                      <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-[#2563EB] flex items-center justify-center shrink-0 mt-0.5">
+                        <Bot className="w-3.5 h-3.5" />
+                      </div>
+                    ) : (
+                      <div className="w-7 shrink-0" aria-hidden="true" />
+                    )}
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      {!isConsecutiveSameRole && (
+                        <span className="block text-[11px] font-semibold text-slate-600 pl-0.5">
+                          AI FinOps 어시스턴트
+                        </span>
+                      )}
+                      <div className="flex items-end gap-1.5 max-w-full">
+                        <div className="max-w-[88%] px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-white border border-slate-200 text-xs text-[#172033] leading-relaxed whitespace-pre-wrap break-words shadow-xs">
+                          {msg.content}
+                        </div>
+                        {timeLabel && (
+                          <span className="text-[10px] text-slate-400 tabular-nums shrink-0 pb-0.5">
+                            {timeLabel}
+                          </span>
                         )}
-                      </button>
-                      {uploadedDocs.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleApplyFromMessage(msg.id, precedingPrompt, true)
-                          }
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2563EB] bg-blue-50 border border-blue-200 rounded-[6px] hover:bg-blue-100 transition-colors cursor-pointer whitespace-nowrap"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          <span>이 조건으로 재분석</span>
-                        </button>
+                      </div>
+                      {precedingPrompt && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleApplyFromMessage(msg.id, precedingPrompt, false)
+                            }
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 rounded-[6px] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            {isApplied ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>반영됨</span>
+                              </>
+                            ) : (
+                              <span>분석 요청사항에 반영</span>
+                            )}
+                          </button>
+                          {uploadedDocs.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleApplyFromMessage(msg.id, precedingPrompt, true)
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#2563EB] bg-blue-50 border border-blue-200 rounded-[6px] hover:bg-blue-100 transition-colors cursor-pointer whitespace-nowrap"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              <span>이 조건으로 재분석</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                </React.Fragment>
               );
             })}
 
             {isSending && (
-              <div className="p-3.5 rounded-[10px] bg-slate-50 border border-slate-200 text-xs text-slate-500 flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 text-[#2563EB] animate-spin shrink-0" />
-                <span>문서와 요청 조건을 바탕으로 응답을 생성하고 있습니다...</span>
+              <div className="flex items-start gap-2 mt-3">
+                <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-[#2563EB] flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <span className="block text-[11px] font-semibold text-slate-600 pl-0.5">
+                    AI FinOps 어시스턴트
+                  </span>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-white border border-slate-200 text-xs text-slate-500 shadow-xs">
+                    <span className="inline-flex items-center gap-1" aria-hidden="true">
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-bounce"
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-bounce"
+                        style={{ animationDelay: '300ms' }}
+                      />
+                    </span>
+                    <span>응답 작성 중...</span>
+                  </div>
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -460,19 +645,19 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
         )}
       </div>
 
-      {/* Prompt Input Dock */}
+      {/* Messenger Composer Dock */}
       <form
         onSubmit={handleSubmit}
-        className="p-4 border-t border-slate-200 bg-white shrink-0 space-y-2.5"
+        className="p-3.5 border-t border-slate-200 bg-white shrink-0 space-y-2"
       >
         <div className="relative">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            rows={3}
-            placeholder="예: 3년치만 분석해줘, 전력료 중점으로 분석해줘..."
-            className="w-full px-3.5 py-2.5 text-xs text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] resize-none focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400 leading-relaxed"
+            rows={2}
+            placeholder="메시지를 입력하세요... (예: 3년치만 분석해줘)"
+            className="w-full px-3.5 py-2.5 text-xs text-[#172033] bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400 leading-relaxed"
           />
         </div>
 
@@ -491,7 +676,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
                   setInput('');
                   onApplyRequest(text, true);
                 }}
-                className="px-3 py-2 text-[11px] font-semibold text-[#2563EB] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-[8px] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="px-3 py-1.5 text-[11px] font-semibold text-[#2563EB] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-[8px] transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 title="입력한 프롬프트를 분석 요청사항으로 적용하고 전체 분석을 실행합니다"
               >
                 맞춤 분석 실행
@@ -500,7 +685,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
             <button
               type="submit"
               disabled={!input.trim() || isSending}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-[8px] transition-colors whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-[8px] transition-colors whitespace-nowrap shrink-0 ${
                 input.trim() && !isSending
                   ? 'bg-[#2563EB] text-white hover:bg-blue-700 cursor-pointer'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed'

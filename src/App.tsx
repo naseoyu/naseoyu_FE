@@ -35,6 +35,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<ServicePage>('landing');
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDataCenterDoc[]>([]);
   const [analysisRequest, setAnalysisRequest] = useState<string>('');
+  const [requestMemo, setRequestMemo] = useState<string>('');
   const [timeframe, setTimeframe] = useState<AnalysisTimeframe>('all');
   const [focusArea, setFocusArea] = useState<AnalysisFocusArea>('all');
   const [aidcSpecs, setAidcSpecs] = useState<AidcProjectSpecs>(INITIAL_AIDC_SPECS);
@@ -108,6 +109,24 @@ export default function App() {
     setUploadedDocs((prev) => prev.filter((d) => d.id !== docId));
   };
 
+  const handleUpdateDocTitle = (
+    docId: string,
+    newTitle: string,
+    isCustomTitle = true
+  ) => {
+    setUploadedDocs((prev) =>
+      prev.map((d) =>
+        d.id === docId
+          ? {
+              ...d,
+              name: newTitle,
+              isCustomTitle,
+            }
+          : d
+      )
+    );
+  };
+
   const handleClearDocs = () => {
     setUploadedDocs([]);
   };
@@ -134,6 +153,7 @@ export default function App() {
   const handleNewAnalysis = () => {
     setUploadedDocs([]);
     setAnalysisRequest('');
+    setRequestMemo('');
     setTimeframe('all');
     setFocusArea('all');
     setAidcSpecs(INITIAL_AIDC_SPECS);
@@ -220,6 +240,7 @@ export default function App() {
               currentPage={currentPage}
               uploadedDocs={uploadedDocs}
               analysisRequest={analysisRequest}
+              requestMemo={requestMemo}
               aidcSpecs={aidcSpecs}
               analysisResult={analysisResult}
               messages={chatMessages}
@@ -237,13 +258,17 @@ export default function App() {
                   <UploadPage
                     uploadedDocs={uploadedDocs}
                     analysisRequest={analysisRequest}
+                    requestMemo={requestMemo}
                     timeframe={timeframe}
                     focusArea={focusArea}
                     aidcSpecs={aidcSpecs}
+                    chatMessages={chatMessages}
                     onAddDocs={handleAddDocs}
                     onRemoveDoc={handleRemoveDoc}
+                    onUpdateDocTitle={handleUpdateDocTitle}
                     onClearDocs={handleClearDocs}
                     onChangeAnalysisRequest={setAnalysisRequest}
+                    onChangeRequestMemo={setRequestMemo}
                     onChangeTimeframe={setTimeframe}
                     onChangeFocusArea={setFocusArea}
                     onChangeAidcSpecs={setAidcSpecs}
@@ -256,6 +281,7 @@ export default function App() {
                   <AnalysisLoadingPage
                     uploadedDocs={activeDocs}
                     analysisRequest={analysisRequest}
+                    requestMemo={requestMemo}
                     timeframe={timeframe}
                     focusArea={focusArea}
                     aidcSpecs={aidcSpecs}
@@ -270,6 +296,7 @@ export default function App() {
                   <DashboardPreviewPage
                     uploadedDocs={activeDocs}
                     analysisRequest={analysisRequest}
+                    requestMemo={requestMemo}
                     timeframe={timeframe}
                     focusArea={focusArea}
                     aidcSpecs={aidcSpecs}

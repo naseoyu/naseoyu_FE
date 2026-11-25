@@ -21,6 +21,7 @@ import { CostCategoryTaxonomy } from '../components/cost/CostCategoryTaxonomy';
 interface DashboardPreviewPageProps {
   uploadedDocs: UploadedDataCenterDoc[];
   analysisRequest: string;
+  requestMemo?: string;
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
   aidcSpecs: AidcProjectSpecs;
@@ -47,6 +48,7 @@ const FOCUS_LABELS: Record<AnalysisFocusArea, string> = {
 export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
   uploadedDocs,
   analysisRequest,
+  requestMemo = '',
   timeframe,
   focusArea,
   aidcSpecs,
@@ -152,6 +154,12 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
                   ? analysisRequest
                   : '11대 표준 비용 항목 전반 및 최적화 로드맵 분석'}
               </p>
+              {requestMemo.trim() && (
+                <div className="mt-2 p-2.5 rounded-[8px] bg-amber-50/60 border border-amber-200/80 text-xs text-slate-700 whitespace-pre-wrap">
+                  <span className="font-semibold text-amber-800 mr-1.5">요약 메모:</span>
+                  {requestMemo}
+                </div>
+              )}
             </div>
           </div>
 

@@ -112,12 +112,14 @@ async function startServer() {
       const {
         documents = [],
         analysisRequest = '',
+        requestMemo = '',
         timeframe = 'all',
         focusArea = 'all',
         aidcSpecs,
       } = req.body as {
         documents: IncomingDocPayload[];
         analysisRequest?: string;
+        requestMemo?: string;
         timeframe?: string;
         focusArea?: string;
         aidcSpecs?: {
@@ -172,6 +174,7 @@ ${docDescriptions.join('\n')}
 ${specsBlock}
 [사용자 맞춤 분석 요청 사항]
 - 직접 입력 요청: "${analysisRequest.trim() || '업로드된 문서를 바탕으로 11대 표준 비용 항목 전반과 최적화 방안을 분석해줘'}"
+- 사용자 요청 요약 메모: "${requestMemo.trim() || '없음'}"
 - 선택된 분석 기간 조건: ${timeframe}
 - 선택된 중점 영역 조건: ${focusArea}
 
@@ -310,6 +313,7 @@ ${CORE_TAXONOMY_CONTEXT}
         history = [],
         documents = [],
         analysisRequest = '',
+        requestMemo = '',
         analysisResult = null,
         currentPage = 'upload',
         aidcSpecs,
@@ -318,6 +322,7 @@ ${CORE_TAXONOMY_CONTEXT}
         history?: Array<{ role: 'user' | 'assistant'; content: string }>;
         documents?: IncomingDocPayload[];
         analysisRequest?: string;
+        requestMemo?: string;
         analysisResult?: Record<string, unknown> | null;
         currentPage?: string;
         aidcSpecs?: {
@@ -376,7 +381,7 @@ ${CORE_TAXONOMY_CONTEXT}
 - 현재 화면: ${currentPage}
 - 연결된 문서 (${documents.length}건):
 ${docSummaryLines.length > 0 ? docSummaryLines.join('\n') : '없음 (아직 문서가 업로드되지 않았습니다)'}
-- 현재 설정된 분석 요청 사항: "${analysisRequest || '미입력'}"${chatSpecsBlock}
+- 현재 설정된 분석 요청 사항: "${analysisRequest || '미입력'}"${requestMemo.trim() ? `\n- 사용자 요청사항 요약 메모:\n${requestMemo.trim()}` : ''}${chatSpecsBlock}
 ${analysisResult ? `- 현재 대시보드 분석 결과 요약: ${JSON.stringify(analysisResult).slice(0, 3000)}` : ''}
 
 ${CORE_TAXONOMY_CONTEXT}

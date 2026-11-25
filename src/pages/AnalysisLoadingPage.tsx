@@ -21,6 +21,7 @@ import {
 interface AnalysisLoadingPageProps {
   uploadedDocs: UploadedDataCenterDoc[];
   analysisRequest: string;
+  requestMemo?: string;
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
   aidcSpecs: AidcProjectSpecs;
@@ -48,6 +49,7 @@ const FOCUS_LABELS: Record<AnalysisFocusArea, string> = {
 export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   uploadedDocs,
   analysisRequest,
+  requestMemo = '',
   timeframe,
   focusArea,
   aidcSpecs,
@@ -160,6 +162,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
             base64Data: d.base64Data,
           })),
           analysisRequest,
+          requestMemo,
           timeframe: TIMEFRAME_LABELS[timeframe],
           focusArea: FOCUS_LABELS[focusArea],
           aidcSpecs,
@@ -185,7 +188,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
           : '분석 서버와 연결할 수 없습니다.'
       );
     }
-  }, [uploadedDocs, analysisRequest, timeframe, focusArea, aidcSpecs, onAnalysisComplete]);
+  }, [uploadedDocs, analysisRequest, requestMemo, timeframe, focusArea, aidcSpecs, onAnalysisComplete]);
 
   useEffect(() => {
     void runAnalysis();
@@ -321,6 +324,12 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
               <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
                 {effectiveRequestLabel}
               </p>
+              {requestMemo.trim() && (
+                <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600">
+                  <span className="font-semibold text-amber-700">요약 메모: </span>
+                  <span className="whitespace-pre-wrap">{requestMemo}</span>
+                </div>
+              )}
               <div className="text-[11px] text-slate-500 pt-1">
                 <span>기간: {TIMEFRAME_LABELS[timeframe]}</span>
                 <span className="mx-1.5" aria-hidden="true">·</span>

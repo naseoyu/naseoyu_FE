@@ -61,6 +61,8 @@ export interface AnalysisStepInfo {
 export interface UploadedDataCenterDoc {
   id: string;
   name: string;
+  originalFileName?: string;
+  isCustomTitle?: boolean;
   sizeBytes: number;
   uploadedAt: Date;
   pageCount: number;

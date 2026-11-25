@@ -12,6 +12,10 @@ import {
   CheckCircle2,
   MessageSquareText,
   Server,
+  Pencil,
+  NotebookPen,
+  Sparkles,
+  Eraser,
 } from 'lucide-react';
 import {
   UploadedDataCenterDoc,
@@ -19,19 +23,24 @@ import {
   AnalysisTimeframe,
   AnalysisFocusArea,
   AidcProjectSpecs,
+  PromptChatMessage,
 } from '../types';
 import { SAMPLE_DATA_CENTER_PRESETS } from '../data/costTaxonomyData';
 
 interface UploadPageProps {
   uploadedDocs: UploadedDataCenterDoc[];
   analysisRequest: string;
+  requestMemo: string;
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
   aidcSpecs: AidcProjectSpecs;
+  chatMessages: PromptChatMessage[];
   onAddDocs: (docs: UploadedDataCenterDoc[]) => void;
   onRemoveDoc: (docId: string) => void;
+  onUpdateDocTitle: (docId: string, newTitle: string, isCustomTitle?: boolean) => void;
   onClearDocs: () => void;
   onChangeAnalysisRequest: (value: string) => void;
+  onChangeRequestMemo: (value: string) => void;
   onChangeTimeframe: (value: AnalysisTimeframe) => void;
   onChangeFocusArea: (value: AnalysisFocusArea) => void;
   onChangeAidcSpecs: (specs: AidcProjectSpecs) => void;
@@ -165,13 +174,17 @@ const DIA_BANDWIDTH_PRESETS = ['10 Gbps', '100 Gbps', '400 Gbps'];
 export const UploadPage: React.FC<UploadPageProps> = ({
   uploadedDocs,
   analysisRequest,
+  requestMemo,
   timeframe,
   focusArea,
   aidcSpecs,
+  chatMessages,
   onAddDocs,
   onRemoveDoc,
+  onUpdateDocTitle,
   onClearDocs,
   onChangeAnalysisRequest,
+  onChangeRequestMemo,
   onChangeTimeframe,
   onChangeFocusArea,
   onChangeAidcSpecs,
@@ -180,7 +193,14 @@ export const UploadPage: React.FC<UploadPageProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingDocTitle, setPendingDocTitle] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const generateAutoDocTitle = (fileName: string, indexOffset = 0): string => {
+    const seq = String(uploadedDocs.length + indexOffset + 1).padStart(2, '0');
+    const cleanBase = fileName.replace(/\.pdf$/i, '').trim();
+    return cleanBase ? `AIDC 비용 문서 #${seq} (${cleanBase})` : `AIDC 비용 문서 #${seq}`;
+  };
 
   const updateSpec = <K extends keyof AidcProjectSpecs>(
     key: K,
@@ -244,6 +264,11 @@ export const UploadPage: React.FC<UploadPageProps> = ({
     const validDocs: UploadedDataCenterDoc[] = [];
     const errors: string[] = [];
 
+    const customTitleInput = pendingDocTitle.trim();
+    const pdfCount = files.filter(
+      (f) => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf'
+    ).length;
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const isPdf =
@@ -262,10 +287,17 @@ export const UploadPage: React.FC<UploadPageProps> = ({
         (p) => p.name.toLowerCase() === file.name.toLowerCase()
       );
       const base64Data = await readFileAsBase64(file);
+      const resolvedTitle = customTitleInput
+        ? pdfCount > 1
+          ? `${customTitleInput} (${validDocs.length + 1})`
+          : customTitleInput
+        : generateAutoDocTitle(file.name, validDocs.length);
 
       validDocs.push({
         id: `doc-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-        name: file.name,
+        name: resolvedTitle,
+        originalFileName: file.name,
+        isCustomTitle: Boolean(customTitleInput),
         sizeBytes: file.size,
         uploadedAt: new Date(),
         pageCount: matchedPreset
@@ -285,6 +317,9 @@ export const UploadPage: React.FC<UploadPageProps> = ({
 
     if (validDocs.length > 0) {
       onAddDocs(validDocs);
+      if (customTitleInput) {
+        setPendingDocTitle('');
+      }
     }
   };
 
@@ -326,9 +361,12 @@ export const UploadPage: React.FC<UploadPageProps> = ({
       return;
     }
 
+    const customTitleInput = pendingDocTitle.trim();
     const doc: UploadedDataCenterDoc = {
       id: preset.id,
-      name: preset.name,
+      name: customTitleInput || preset.label || preset.name,
+      originalFileName: preset.name,
+      isCustomTitle: Boolean(customTitleInput),
       sizeBytes: preset.fileSizeBytes,
       uploadedAt: new Date(),
       pageCount: preset.pageCount,
@@ -336,6 +374,9 @@ export const UploadPage: React.FC<UploadPageProps> = ({
       documentSummary: preset.summary,
     };
     onAddDocs([doc]);
+    if (customTitleInput) {
+      setPendingDocTitle('');
+    }
   };
 
   const handleApplyExample = (example: string) => {
@@ -352,9 +393,62 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   const totalPages = uploadedDocs.reduce((sum, d) => sum + d.pageCount, 0);
   const totalBytes = uploadedDocs.reduce((sum, d) => sum + d.sizeBytes, 0);
 
+  const selectedTimeframeLabel =
+    TIMEFRAME_OPTIONS.find((t) => t.value === timeframe)?.label || '전체 기간';
+  const selectedFocusLabel =
+    FOCUS_OPTIONS.find((f) => f.value === focusArea)?.label || '11대 항목 전체';
+  const userChatPrompts = chatMessages
+    .filter((m) => m.role === 'user')
+    .map((m) => m.content.trim())
+    .filter(Boolean);
+
+  const buildRequestSummaryLines = (): string[] => {
+    const lines: string[] = [];
+    if (uploadedDocs.length > 0) {
+      lines.push(
+        `대상 문서(${uploadedDocs.length}건): ${uploadedDocs
+          .map((d) => d.name)
+          .join(', ')}`
+      );
+    }
+    lines.push(`분석 기준: ${selectedTimeframeLabel} · ${selectedFocusLabel}`);
+
+    const specParts: string[] = [];
+    if (aidcSpecs.commencementDate)
+      specParts.push(`가동 ${aidcSpecs.commencementDate}`);
+    if (aidcSpecs.usageDuration)
+      specParts.push(`기간 ${aidcSpecs.usageDuration}`);
+    if (aidcSpecs.gpuSystemType)
+      specParts.push(`GPU ${aidcSpecs.gpuSystemType}`);
+    if (aidcSpecs.storageCapacity)
+      specParts.push(`Storage ${aidcSpecs.storageCapacity}`);
+    if (aidcSpecs.diaBandwidth) specParts.push(`DIA ${aidcSpecs.diaBandwidth}`);
+    if (specParts.length > 0) {
+      lines.push(`AIDC 사양: ${specParts.join(' / ')}`);
+    }
+
+    if (analysisRequest.trim()) {
+      lines.push(`상세 요청: ${analysisRequest.trim()}`);
+    }
+
+    if (userChatPrompts.length > 0) {
+      const recentChat = userChatPrompts[userChatPrompts.length - 1];
+      lines.push(`메신저 최근 요청: ${recentChat}`);
+    }
+
+    return lines;
+  };
+
+  const summaryLines = buildRequestSummaryLines();
+
+  const handleFillMemoFromSummary = () => {
+    const formatted = summaryLines.map((line) => `• ${line}`).join('\n');
+    onChangeRequestMemo(formatted);
+  };
+
   return (
     <div className="w-full min-h-full bg-slate-50 py-10 px-6 lg:px-10">
-      <div className="max-w-[980px] mx-auto">
+      <div className="max-w-[1160px] mx-auto">
         {/* Navigation Breadcrumb */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <button
@@ -403,218 +497,383 @@ export const UploadPage: React.FC<UploadPageProps> = ({
           onChange={handleFileInput}
         />
 
-        {/* File Upload & Multi-Document Management Card */}
-        <div className="card-enterprise p-6 sm:p-8 mb-8 bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div>
-              <h2 className="text-base font-bold text-[#172033]">
-                서류 업로드 ({uploadedDocs.length}건)
-              </h2>
-              {uploadedDocs.length > 0 && (
-                <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
-                  총 {uploadedDocs.length}개 문서 · 약 {totalPages}페이지 ·{' '}
-                  {formatFileSize(totalBytes)}
-                </p>
-              )}
-            </div>
+        {/* Top Dashboard Grid: Document Upload + Title Specification (Left) & Request Summary Notepad (Right) */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mb-8">
+          {/* File Upload & Multi-Document Management Card */}
+          <div className="xl:col-span-7 card-enterprise p-6 sm:p-7 bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <div>
+                <h2 className="text-base font-bold text-[#172033]">
+                  서류 업로드 ({uploadedDocs.length}건)
+                </h2>
+                {uploadedDocs.length > 0 && (
+                  <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                    총 {uploadedDocs.length}개 문서 · 약 {totalPages}페이지 ·{' '}
+                    {formatFileSize(totalBytes)}
+                  </p>
+                )}
+              </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {uploadedDocs.length >= 2 && (
+              <div className="flex items-center gap-2 shrink-0">
+                {uploadedDocs.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={onClearDocs}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    전체 삭제
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={onClearDocs}
-                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#2563EB] hover:bg-blue-700 rounded-[8px] transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  전체 삭제
+                  <Plus className="w-4 h-4" />
+                  <span>서류 추가</span>
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#2563EB] hover:bg-blue-700 rounded-[8px] transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4" />
-                <span>서류 추가</span>
-              </button>
-            </div>
-          </div>
-
-          {uploadedDocs.length === 0 ? (
-            /* Empty Drag and Drop Zone */
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`relative flex flex-col items-center justify-center p-10 sm:p-12 rounded-[12px] border-2 border-dashed transition-all cursor-pointer ${
-                isDragging
-                  ? 'border-[#2563EB] bg-blue-50/70'
-                  : 'border-slate-300 hover:border-[#2563EB] bg-slate-50/60 hover:bg-slate-50'
-              }`}
-            >
-              <div className="w-14 h-14 rounded-[12px] bg-blue-50 text-[#2563EB] flex items-center justify-center mb-4">
-                <UploadCloud className="w-7 h-7" />
               </div>
-
-              <h3 className="text-base font-bold text-[#172033] mb-1.5 text-center">
-                PDF 파일 여러 개를 끌어다 놓거나 클릭하여 추가하세요
-              </h3>
-              <p className="text-xs text-slate-500 text-center max-w-md mb-6 leading-relaxed">
-                전력 청구서, GPU/서버 유지보수 계약서, 감가상각 내역서 등 복수의 문서를 한 번에 업로드할 수 있습니다 (파일당 최대 50MB).
-              </p>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fileInputRef.current?.click();
-                }}
-                className="px-5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[8px] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors cursor-pointer"
-              >
-                로컬 컴퓨터에서 파일 여러 개 선택
-              </button>
             </div>
-          ) : (
-            /* Uploaded Documents List + Compact Append Dropzone */
-            <div className="space-y-4">
-              <div className="divide-y divide-slate-200 border border-slate-200 rounded-[12px] overflow-hidden bg-white">
-                {uploadedDocs.map((doc, idx) => (
-                  <div
-                    key={doc.id}
-                    className="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+
+            {/* Document Title Pre-Input (Optional — auto-assigned if left empty) */}
+            <div className="mb-5 p-3.5 rounded-[10px] bg-slate-50 border border-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                <label
+                  htmlFor="pending-doc-title"
+                  className="text-xs font-semibold text-[#172033]"
+                >
+                  업로드할 문서 제목 지정 (선택)
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  미입력 시 자동 제목이 부여됩니다
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="pending-doc-title"
+                  type="text"
+                  value={pendingDocTitle}
+                  onChange={(e) => setPendingDocTitle(e.target.value)}
+                  placeholder="예: 2026년 1분기 H100 전력·냉각 계약서 (비워두면 임의 자동 지정)"
+                  className="flex-1 min-w-0 px-3 py-2 text-xs text-[#172033] bg-white border border-slate-200 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
+                />
+                {pendingDocTitle && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingDocTitle('')}
+                    className="px-2.5 py-2 text-[11px] font-medium text-slate-500 hover:text-[#172033] bg-white border border-slate-200 rounded-[8px] cursor-pointer shrink-0"
                   >
-                    <div className="flex items-start gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-[10px] bg-[#172033] text-white flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5 text-blue-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 tabular-nums">
-                          <span className="font-mono font-bold text-slate-400">
-                            {String(idx + 1).padStart(2, '0')}
-                          </span>
-                          <span aria-hidden="true">·</span>
-                          <span className="font-semibold text-emerald-700">
-                            {doc.sourceType === 'preset_sample'
-                              ? '표준 샘플 문서'
-                              : '로컬 PDF 업로드'}
-                          </span>
-                          <span aria-hidden="true">·</span>
-                          <span>약 {doc.pageCount}p</span>
-                          <span aria-hidden="true">·</span>
-                          <span>{formatFileSize(doc.sizeBytes)}</span>
-                        </div>
-                        <h3 className="text-sm font-bold text-[#172033] truncate mt-0.5">
-                          {doc.name}
-                        </h3>
-                        {doc.documentSummary && (
-                          <p className="text-xs text-slate-500 truncate mt-0.5">
-                            {doc.documentSummary}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                      <button
-                        type="button"
-                        onClick={() => onRemoveDoc(doc.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-white border border-red-200 rounded-[8px] hover:bg-red-50 transition-colors cursor-pointer whitespace-nowrap"
-                        title={`${doc.name} 삭제`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>삭제</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    지우기
+                  </button>
+                )}
               </div>
+            </div>
 
-              {/* Compact Dropzone to append additional files */}
+            {uploadedDocs.length === 0 ? (
+              /* Empty Drag and Drop Zone */
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-4 rounded-[10px] border border-dashed flex flex-col sm:flex-row items-center justify-between gap-3 cursor-pointer transition-colors ${
+                className={`relative flex flex-col items-center justify-center p-9 sm:p-11 rounded-[12px] border-2 border-dashed transition-all cursor-pointer ${
                   isDragging
                     ? 'border-[#2563EB] bg-blue-50/70'
-                    : 'border-slate-300 bg-slate-50/70 hover:border-[#2563EB] hover:bg-blue-50/30'
+                    : 'border-slate-300 hover:border-[#2563EB] bg-slate-50/60 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center gap-3 text-xs text-slate-600">
-                  <UploadCloud className="w-4 h-4 text-[#2563EB] shrink-0" />
-                  <span>
-                    비교·합산 분석할 PDF 서류가 더 있다면 여기에 끌어다 놓거나 <strong>서류 추가</strong> 버튼을 누르세요.
-                  </span>
+                <div className="w-13 h-13 rounded-[12px] bg-blue-50 text-[#2563EB] flex items-center justify-center mb-4">
+                  <UploadCloud className="w-6 h-6" />
                 </div>
+
+                <h3 className="text-base font-bold text-[#172033] mb-1.5 text-center">
+                  PDF 파일 여러 개를 끌어다 놓거나 클릭하여 추가하세요
+                </h3>
+                <p className="text-xs text-slate-500 text-center max-w-md mb-5 leading-relaxed">
+                  전력 청구서, GPU/서버 유지보수 계약서, 감가상각 내역서 등 복수의 문서를 한 번에 업로드할 수 있습니다 (파일당 최대 50MB).
+                </p>
+
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     fileInputRef.current?.click();
                   }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#2563EB] bg-white border border-blue-200 rounded-[8px] hover:bg-blue-50 transition-colors shrink-0 cursor-pointer whitespace-nowrap"
+                  className="px-5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[8px] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>서류 추가</span>
+                  로컬 컴퓨터에서 파일 여러 개 선택
                 </button>
               </div>
+            ) : (
+              /* Uploaded Documents List + Compact Append Dropzone */
+              <div className="space-y-4">
+                <div className="divide-y divide-slate-200 border border-slate-200 rounded-[12px] overflow-hidden bg-white">
+                  {uploadedDocs.map((doc, idx) => (
+                    <div
+                      key={doc.id}
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+                    >
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-[10px] bg-[#172033] text-white flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 tabular-nums mb-1">
+                            <span className="font-mono font-bold text-slate-400">
+                              {String(idx + 1).padStart(2, '0')}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-semibold text-emerald-700">
+                              {doc.sourceType === 'preset_sample'
+                                ? '표준 샘플'
+                                : '로컬 PDF'}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span
+                              className={`font-medium ${
+                                doc.isCustomTitle
+                                  ? 'text-[#2563EB]'
+                                  : 'text-slate-500'
+                              }`}
+                            >
+                              {doc.isCustomTitle ? '제목 직접 지정' : '제목 자동 지정'}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span>약 {doc.pageCount}p</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{formatFileSize(doc.sizeBytes)}</span>
+                          </div>
 
-              <div className="p-3.5 rounded-[10px] bg-blue-50/60 border border-blue-200 text-xs text-[#172033] flex items-center gap-2.5">
-                <FileCheck className="w-4 h-4 text-[#2563EB] shrink-0" />
-                <p>
-                  <strong>{uploadedDocs.length}건의 서류 검증 완료:</strong> 아래 분석 요청 사항을 입력하면 해당 조건에 맞춰 비용 항목을 추출·분석합니다.
+                          <div className="flex items-center gap-1.5">
+                            <Pencil className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <input
+                              type="text"
+                              value={doc.name}
+                              aria-label={`${idx + 1}번 문서 제목`}
+                              onChange={(e) =>
+                                onUpdateDocTitle(doc.id, e.target.value, true)
+                              }
+                              onBlur={(e) => {
+                                const trimmed = e.target.value.trim();
+                                if (!trimmed) {
+                                  const fallback = `AIDC 비용 문서 #${String(
+                                    idx + 1
+                                  ).padStart(2, '0')}${
+                                    doc.originalFileName
+                                      ? ` (${doc.originalFileName.replace(/\.pdf$/i, '')})`
+                                      : ''
+                                  }`;
+                                  onUpdateDocTitle(doc.id, fallback, false);
+                                } else if (trimmed !== doc.name) {
+                                  onUpdateDocTitle(doc.id, trimmed, true);
+                                }
+                              }}
+                              placeholder="문서 제목을 입력하세요 (비우면 자동 지정)"
+                              className="w-full min-w-0 px-2.5 py-1 text-sm font-bold text-[#172033] bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200 rounded-[7px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
+                            />
+                          </div>
+
+                          <p className="text-[11px] text-slate-500 truncate mt-1">
+                            원본 파일: {doc.originalFileName || doc.name}
+                            {doc.documentSummary ? ` · ${doc.documentSummary}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveDoc(doc.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-white border border-red-200 rounded-[8px] hover:bg-red-50 transition-colors cursor-pointer whitespace-nowrap"
+                          title={`${doc.name} 삭제`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>삭제</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Compact Dropzone to append additional files */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`p-3.5 rounded-[10px] border border-dashed flex flex-col sm:flex-row items-center justify-between gap-3 cursor-pointer transition-colors ${
+                    isDragging
+                      ? 'border-[#2563EB] bg-blue-50/70'
+                      : 'border-slate-300 bg-slate-50/70 hover:border-[#2563EB] hover:bg-blue-50/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 text-xs text-slate-600">
+                    <UploadCloud className="w-4 h-4 text-[#2563EB] shrink-0" />
+                    <span>
+                      추가할 PDF가 있다면 끌어다 놓거나 <strong>서류 추가</strong>를 누르세요.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#2563EB] bg-white border border-blue-200 rounded-[8px] hover:bg-blue-50 transition-colors shrink-0 cursor-pointer whitespace-nowrap"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>서류 추가</span>
+                  </button>
+                </div>
+
+                <div className="p-3 rounded-[10px] bg-blue-50/60 border border-blue-200 text-xs text-[#172033] flex items-center gap-2.5">
+                  <FileCheck className="w-4 h-4 text-[#2563EB] shrink-0" />
+                  <p>
+                    <strong>{uploadedDocs.length}건 서류 준비 완료:</strong> 위 제목을 클릭해 언제든 수정할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Multi-select Presets */}
+            <div className="mt-6 pt-5 border-t border-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <span className="text-xs font-bold text-slate-700">
+                  실사 테스트용 표준 샘플 문서 추가 선택 (복수 선택 가능)
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  클릭하여 목록에 추가하거나 제외
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {SAMPLE_DATA_CENTER_PRESETS.map((preset) => {
+                  const isSelected = uploadedDocs.some((d) => d.id === preset.id);
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleTogglePreset(preset)}
+                      className={`flex flex-col text-left p-3 rounded-[10px] border text-xs transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]'
+                          : 'border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1 gap-2">
+                        <span className="font-bold text-[#172033] truncate">
+                          {preset.label}
+                        </span>
+                        {isSelected ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#2563EB] shrink-0" />
+                        ) : (
+                          <Plus className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        )}
+                      </div>
+                      <span className="text-slate-500 truncate mb-1 text-[11px] w-full">
+                        {preset.name}
+                      </span>
+                      <span className="text-[11px] text-slate-400 tabular-nums">
+                        {formatFileSize(preset.fileSizeBytes)} · {preset.pageCount}p
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: User Request Summary Notepad */}
+          <aside className="xl:col-span-5 xl:sticky xl:top-6 card-enterprise bg-white overflow-hidden">
+            {/* Notepad Header */}
+            <div className="px-5 py-4 border-b border-amber-200/80 bg-amber-50/60 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-[8px] bg-amber-100 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+                  <NotebookPen className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-[#172033] truncate">
+                    요청사항 요약 메모장
+                  </h2>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    입력한 조건과 요청사항을 한눈에 정리·메모
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleFillMemoFromSummary}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-[#2563EB] bg-white border border-blue-200 rounded-[7px] hover:bg-blue-50 transition-colors cursor-pointer whitespace-nowrap"
+                  title="현재 입력된 분석 조건과 요청사항을 아래 메모장에 채웁니다"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>요약 채우기</span>
+                </button>
+                {requestMemo && (
+                  <button
+                    type="button"
+                    onClick={() => onChangeRequestMemo('')}
+                    className="p-1.5 text-slate-500 hover:text-red-600 bg-white border border-slate-200 rounded-[7px] transition-colors cursor-pointer"
+                    title="메모 지우기"
+                  >
+                    <Eraser className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Live Auto-Summary of Current User Requests */}
+              <div className="p-3.5 rounded-[10px] bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-[#172033]">
+                    실시간 요청사항 자동 요약
+                  </span>
+                  <span className="text-slate-400 tabular-nums">
+                    {summaryLines.length}개 항목
+                  </span>
+                </div>
+                <ul className="space-y-1.5 text-xs text-slate-600 leading-relaxed">
+                  {summaryLines.map((line, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] mt-1.5 shrink-0" />
+                      <span className="break-words">{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Editable Notepad Area */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label
+                    htmlFor="request-summary-memo"
+                    className="text-xs font-semibold text-[#172033]"
+                  >
+                    메모장 (직접 요약·수정)
+                  </label>
+                  <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                    {requestMemo.length}자
+                  </span>
+                </div>
+                <textarea
+                  id="request-summary-memo"
+                  value={requestMemo}
+                  onChange={(e) => onChangeRequestMemo(e.target.value)}
+                  rows={8}
+                  placeholder={
+                    '분석 전 핵심 요청사항을 간단히 메모해 두세요.\n\n예:\n- H100 클러스터 36개월 운영비 위주\n- 전력 단가 상승분 및 냉각비 절감 포인트 집중 확인\n- 상단 "요약 채우기" 버튼을 누르면 현재 조건이 자동 정리됩니다.'
+                  }
+                  className="w-full px-3.5 py-3 text-xs text-[#172033] bg-amber-50/40 border border-amber-200/90 rounded-[10px] resize-y focus:outline-none focus:bg-amber-50/20 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 placeholder:text-slate-400 leading-relaxed"
+                />
+                <p className="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
+                  ※ 메모장에 적은 요약 내용은 LLM 분석 및 좌측 메신저 상담 시 함께 전달됩니다.
                 </p>
               </div>
             </div>
-          )}
-
-          {/* Multi-select Presets */}
-          <div className="mt-8 pt-6 border-t border-slate-200">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <span className="text-xs font-bold text-slate-700">
-                실사 테스트용 표준 샘플 문서 추가 선택 (복수 선택 가능)
-              </span>
-              <span className="text-[11px] text-slate-400">
-                클릭하여 목록에 추가하거나 제외할 수 있습니다
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {SAMPLE_DATA_CENTER_PRESETS.map((preset) => {
-                const isSelected = uploadedDocs.some((d) => d.id === preset.id);
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => handleTogglePreset(preset)}
-                    className={`flex flex-col text-left p-3.5 rounded-[10px] border text-xs transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-[#2563EB] bg-blue-50/60 ring-1 ring-[#2563EB]'
-                        : 'border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-1 gap-2">
-                      <span className="font-bold text-[#172033] truncate">
-                        {preset.label}
-                      </span>
-                      {isSelected ? (
-                        <CheckCircle2 className="w-4 h-4 text-[#2563EB] shrink-0" />
-                      ) : (
-                        <Plus className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      )}
-                    </div>
-                    <span className="text-slate-500 truncate mb-1 text-[11px] w-full">
-                      {preset.name}
-                    </span>
-                    <span className="text-[11px] text-slate-400 tabular-nums">
-                      {formatFileSize(preset.fileSizeBytes)} · {preset.pageCount}p
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          </aside>
         </div>
 
         {/* AIDC Infrastructure & Operation Specifications Card */}
