@@ -52,7 +52,6 @@ export type AnalysisStepId = 1 | 2 | 3;
 export interface AnalysisStepInfo {
   step: AnalysisStepId;
   title: string;
-  subtitle: string;
   description: string;
   status: 'pending' | 'in_progress' | 'completed';
 }

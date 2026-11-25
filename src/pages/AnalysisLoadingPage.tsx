@@ -68,7 +68,6 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     {
       step: 1,
       title: 'STEP 1. 문서 읽기 및 AIDC 운영 데이터 확인',
-      subtitle: 'Document Ingestion & AIDC Data Check',
       description: `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 추출하고 AIDC 운영 데이터 및 "${TIMEFRAME_LABELS[timeframe]} / ${FOCUS_LABELS[focusArea]}" 분석 조건을 확인합니다.`,
       status:
         currentStep > 1 || isCompleted
@@ -80,7 +79,6 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     {
       step: 2,
       title: 'STEP 2. 비용 항목 분석 및 운영비 예측',
-      subtitle: 'Cost Breakdown & OPEX Forecasting',
       description:
         '사용자 요청 사항에 해당하는 핵심 비용 항목(전력료, 감가상각비, 외주용역비 등)을 분석하여 기간별 운영비를 예측합니다.',
       status:
@@ -93,7 +91,6 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     {
       step: 3,
       title: 'STEP 3. 비용 최적화 방안 및 추천 결과 생성',
-      subtitle: 'Cost Optimization & Recommendation Synthesis',
       description:
         '분석된 비용 구조를 바탕으로 정량적 절감 포인트와 맞춤형 비용 최적화 추천 결과를 생성합니다.',
       status: isCompleted
@@ -422,10 +419,6 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
                       </p>
                     </div>
                   </div>
-
-                  <span className="text-[11px] font-mono text-slate-400 shrink-0 hidden sm:block">
-                    {s.subtitle}
-                  </span>
                 </div>
               </div>
             );
