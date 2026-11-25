@@ -70,21 +70,95 @@ const DURATION_YEAR_STEPS = [
 ];
 
 const GPU_SYSTEM_OPTIONS = [
-  'NVIDIA HGX H100 (8-GPU)',
-  'NVIDIA HGX H200 (8-GPU)',
-  'NVIDIA GB200 NVL72',
-  'NVIDIA B200 / HGX B200',
-  'NVIDIA A100 (8-GPU)',
-  'AMD Instinct MI300X',
-];
+  '1_NVIDIA DGX H100',
+  '2_NVIDIA DGX H200',
+  '3_NVIDIA DGX GB200',
+  '4_NVIDIA DGX GB300',
+  '5_NVIDIA DGX GB200 NVL72',
+  '6_NVIDIA DGX GB300 NVL72',
+  '7_NVIDIA DGX Vera Rubin NVL72',
+  '8_NVIDIA DGX Vera Rubin NVL576',
+  '9_OEM HGX H100',
+  '10_OEM HGX H200',
+  '11_OEM HGX GB200',
+  '12_OEM HGX GB300',
+  '13_OEM HGX GB200 NVL72',
+  '14_OEM HGX GB300 NVL72',
+] as const;
+
+const GPU_SYSTEM_SPECS: Record<string, { gpuConfig: string; coolingType: string }> = {
+  '1_NVIDIA DGX H100': {
+    gpuConfig: '8 GPU / 1 Server',
+    coolingType: 'Air Cooling',
+  },
+  '2_NVIDIA DGX H200': {
+    gpuConfig: '8 GPU / 1 Server',
+    coolingType: 'Air Cooling',
+  },
+  '3_NVIDIA DGX GB200': {
+    gpuConfig: '4 GPU + 2 Grace CPU / compute tray',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '4_NVIDIA DGX GB300': {
+    gpuConfig: '4 GPU + 2 Grace CPU / compute tray',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '5_NVIDIA DGX GB200 NVL72': {
+    gpuConfig: '72 GPU / 1 rack',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '6_NVIDIA DGX GB300 NVL72': {
+    gpuConfig: '72 GPU / 1 rack',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '7_NVIDIA DGX Vera Rubin NVL72': {
+    gpuConfig: '72 GPU / 1 rack',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '8_NVIDIA DGX Vera Rubin NVL576': {
+    gpuConfig: '576 GPU / 8 racks',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '9_OEM HGX H100': {
+    gpuConfig: '8 GPU / Dell 6U or Supermicro 8U server',
+    coolingType: 'Air Cooling',
+  },
+  '10_OEM HGX H200': {
+    gpuConfig: '8 GPU / Dell 6U or Supermicro 8U server',
+    coolingType: 'Air Cooling',
+  },
+  '11_OEM HGX GB200': {
+    gpuConfig: '4 GPU + 2 Grace CPU / 1U liquid-cooled node',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '12_OEM HGX GB300': {
+    gpuConfig: '4 GPU + 2 Grace CPU / liquid-cooled compute tray',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '13_OEM HGX GB200 NVL72': {
+    gpuConfig: '72 GPU / 1 rack',
+    coolingType: 'Direct Liquid Cooling',
+  },
+  '14_OEM HGX GB300 NVL72': {
+    gpuConfig: '72 GPU / 1 rack',
+    coolingType: 'Direct Liquid Cooling',
+  },
+};
 
 const STORAGE_CAPACITY_OPTIONS = [
-  '100 TB (All-Flash NVMe)',
-  '500 TB (All-Flash NVMe)',
-  '1 PB (Lustre / GPFS)',
-  '5 PB (AI Training Storage)',
-  '10 PB 이상 (Hyperscale)',
-];
+  '최소형 PoC/추론중심 스토리지 필요량',
+  '표준형 권장 스토리지 필요량',
+  '대규모 학습량 스토리지 필요량',
+] as const;
+
+const STORAGE_PER_GPU_REQUIREMENTS: Record<string, string> = {
+  '최소형 PoC/추론중심 스토리지 필요량':
+    '공유 성능형 18 TiB; 오브젝트/백업 90 TiB; 읽기 목표 18-36 GB/s',
+  '표준형 권장 스토리지 필요량':
+    '공유 성능형 90 TiB; 오브젝트/백업 360 TiB; 읽기 목표 72-144 GB/s',
+  '대규모 학습량 스토리지 필요량':
+    '공유 성능형 270 TiB; 오브젝트/백업 360 TiB; 읽기 목표 270-360 GB/s',
+};
 
 const DIA_BANDWIDTH_PRESETS = ['10 Gbps', '100 Gbps', '400 Gbps'];
 
@@ -106,12 +180,6 @@ export const UploadPage: React.FC<UploadPageProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isCustomGpu, setIsCustomGpu] = useState(
-    Boolean(aidcSpecs.gpuSystemType && !GPU_SYSTEM_OPTIONS.includes(aidcSpecs.gpuSystemType))
-  );
-  const [isCustomStorage, setIsCustomStorage] = useState(
-    Boolean(aidcSpecs.storageCapacity && !STORAGE_CAPACITY_OPTIONS.includes(aidcSpecs.storageCapacity))
-  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateSpec = <K extends keyof AidcProjectSpecs>(
@@ -579,7 +647,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                 type="date"
                 value={aidcSpecs.commencementDate}
                 onChange={(e) => updateSpec('commencementDate', e.target.value)}
-                className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] font-mono tabular-nums"
+                className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] font-sans tabular-nums"
               />
             </div>
 
@@ -701,21 +769,19 @@ export const UploadPage: React.FC<UploadPageProps> = ({
               <select
                 id="aidc-gpu-system"
                 value={
-                  isCustomGpu
-                    ? '__custom__'
-                    : GPU_SYSTEM_OPTIONS.includes(aidcSpecs.gpuSystemType)
+                  (GPU_SYSTEM_OPTIONS as readonly string[]).includes(aidcSpecs.gpuSystemType)
                     ? aidcSpecs.gpuSystemType
                     : ''
                 }
                 onChange={(e) => {
                   const val = e.target.value;
-                  if (val === '__custom__') {
-                    setIsCustomGpu(true);
-                    updateSpec('gpuSystemType', '');
-                  } else {
-                    setIsCustomGpu(false);
-                    updateSpec('gpuSystemType', val);
-                  }
+                  const spec = GPU_SYSTEM_SPECS[val];
+                  onChangeAidcSpecs({
+                    ...aidcSpecs,
+                    gpuSystemType: val,
+                    gpuConfig: spec?.gpuConfig ?? '',
+                    gpuCoolingType: spec?.coolingType ?? '',
+                  });
                 }}
                 className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]"
               >
@@ -725,17 +791,43 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                     {opt}
                   </option>
                 ))}
-                <option value="__custom__">기타 (직접 입력)</option>
               </select>
-              {isCustomGpu && (
-                <input
-                  type="text"
-                  value={aidcSpecs.gpuSystemType}
-                  onChange={(e) => updateSpec('gpuSystemType', e.target.value)}
-                  placeholder="GPU System 종류를 직접 입력하세요"
-                  className="mt-2 w-full px-3.5 py-2 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
-                />
-              )}
+
+              <div className="mt-3 space-y-2.5">
+                <div>
+                  <span className="block text-xs font-semibold text-[#172033] mb-1.5">
+                    GPU 구성
+                  </span>
+                  <div
+                    aria-live="polite"
+                    className={`w-full px-3.5 py-2.5 text-xs rounded-[10px] border transition-colors leading-relaxed ${
+                      GPU_SYSTEM_SPECS[aidcSpecs.gpuSystemType]
+                        ? 'bg-blue-50/60 border-blue-200 text-[#172033] font-medium tabular-nums'
+                        : 'bg-slate-50 border-slate-200 text-slate-400'
+                    }`}
+                  >
+                    {GPU_SYSTEM_SPECS[aidcSpecs.gpuSystemType]?.gpuConfig ??
+                      'GPU System 종류를 선택하면 GPU 구성이 표시됩니다.'}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="block text-xs font-semibold text-[#172033] mb-1.5">
+                    데이터센터 권장 냉각 방식
+                  </span>
+                  <div
+                    aria-live="polite"
+                    className={`w-full px-3.5 py-2.5 text-xs rounded-[10px] border transition-colors leading-relaxed ${
+                      GPU_SYSTEM_SPECS[aidcSpecs.gpuSystemType]
+                        ? 'bg-blue-50/60 border-blue-200 text-[#172033] font-medium tabular-nums'
+                        : 'bg-slate-50 border-slate-200 text-slate-400'
+                    }`}
+                  >
+                    {GPU_SYSTEM_SPECS[aidcSpecs.gpuSystemType]?.coolingType ??
+                      'GPU System 종류를 선택하면 권장 냉각 방식이 표시됩니다.'}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 4. Storage 구축 용량을 선택하시오. */}
@@ -744,26 +836,22 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                 htmlFor="aidc-storage-capacity"
                 className="block text-xs font-semibold text-[#172033] mb-2"
               >
-                4. Storage 구축 용량을 선택하시오.
+                4. Storage 구축 용량을 선택하세요.
               </label>
               <select
                 id="aidc-storage-capacity"
                 value={
-                  isCustomStorage
-                    ? '__custom__'
-                    : STORAGE_CAPACITY_OPTIONS.includes(aidcSpecs.storageCapacity)
+                  (STORAGE_CAPACITY_OPTIONS as readonly string[]).includes(aidcSpecs.storageCapacity)
                     ? aidcSpecs.storageCapacity
                     : ''
                 }
                 onChange={(e) => {
                   const val = e.target.value;
-                  if (val === '__custom__') {
-                    setIsCustomStorage(true);
-                    updateSpec('storageCapacity', '');
-                  } else {
-                    setIsCustomStorage(false);
-                    updateSpec('storageCapacity', val);
-                  }
+                  onChangeAidcSpecs({
+                    ...aidcSpecs,
+                    storageCapacity: val,
+                    storagePerGpuRequirement: STORAGE_PER_GPU_REQUIREMENTS[val] ?? '',
+                  });
                 }}
                 className="w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]"
               >
@@ -773,17 +861,24 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                     {opt}
                   </option>
                 ))}
-                <option value="__custom__">기타 (직접 입력)</option>
               </select>
-              {isCustomStorage && (
-                <input
-                  type="text"
-                  value={aidcSpecs.storageCapacity}
-                  onChange={(e) => updateSpec('storageCapacity', e.target.value)}
-                  placeholder="Storage 구축 용량을 직접 입력하세요 (예: 2.5 PB)"
-                  className="mt-2 w-full px-3.5 py-2 text-sm text-[#172033] bg-slate-50 border border-slate-200 rounded-[10px] focus:outline-none focus:bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
-                />
-              )}
+
+              <div className="mt-3">
+                <span className="block text-xs font-semibold text-[#172033] mb-1.5">
+                  GPU System 1개당 Storage 필요량
+                </span>
+                <div
+                  aria-live="polite"
+                  className={`w-full px-3.5 py-2.5 text-xs rounded-[10px] border transition-colors leading-relaxed ${
+                    STORAGE_PER_GPU_REQUIREMENTS[aidcSpecs.storageCapacity]
+                      ? 'bg-blue-50/60 border-blue-200 text-[#172033] font-medium tabular-nums'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  }`}
+                >
+                  {STORAGE_PER_GPU_REQUIREMENTS[aidcSpecs.storageCapacity] ??
+                    'Storage 구축 용량을 선택하면 GPU System 1개당 필요량이 표시됩니다.'}
+                </div>
+              </div>
             </div>
 
             {/* 5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth 를 입력하시오. */}

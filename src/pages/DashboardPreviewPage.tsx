@@ -163,7 +163,7 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
             <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
               <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
                 <span className="block text-[11px] text-slate-500">가동 시점</span>
-                <span className="font-semibold text-[#172033] font-mono tabular-nums">
+                <span className="font-semibold text-[#172033] tabular-nums">
                   {aidcSpecs.commencementDate || '미입력'}
                 </span>
               </div>
@@ -175,15 +175,30 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
               </div>
               <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
                 <span className="block text-[11px] text-slate-500">GPU System</span>
-                <span className="font-semibold text-[#172033]">
+                <span className="font-semibold text-[#172033] block">
                   {aidcSpecs.gpuSystemType || '미입력'}
                 </span>
+                {aidcSpecs.gpuConfig && (
+                  <span className="block text-[11px] text-slate-500 mt-0.5 leading-snug tabular-nums">
+                    GPU 구성: {aidcSpecs.gpuConfig}
+                  </span>
+                )}
+                {aidcSpecs.gpuCoolingType && (
+                  <span className="block text-[11px] text-slate-500 mt-0.5 leading-snug">
+                    권장 냉각: {aidcSpecs.gpuCoolingType}
+                  </span>
+                )}
               </div>
               <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
                 <span className="block text-[11px] text-slate-500">Storage 용량</span>
-                <span className="font-semibold text-[#172033]">
+                <span className="font-semibold text-[#172033] block">
                   {aidcSpecs.storageCapacity || '미입력'}
                 </span>
+                {aidcSpecs.storagePerGpuRequirement && (
+                  <span className="block text-[11px] text-slate-500 mt-0.5 leading-snug tabular-nums">
+                    GPU 1개당: {aidcSpecs.storagePerGpuRequirement}
+                  </span>
+                )}
               </div>
               <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
                 <span className="block text-[11px] text-slate-500">DIA Bandwidth</span>

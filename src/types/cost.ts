@@ -79,7 +79,10 @@ export interface AidcProjectSpecs {
   commencementDate: string; // 1. AIDC 사용 시점, GPU서버 가동 시점(Commencement date)
   usageDuration: string;    // 2. AIDC 사용 기간
   gpuSystemType: string;    // 3. 사용하고자 하는 GPU System 종류를 선택하시오.
+  gpuConfig?: string;       // GPU 구성
+  gpuCoolingType?: string;  // 데이터센터 권장 냉각 방식
   storageCapacity: string;  // 4. Storage 구축 용량을 선택하시오.
+  storagePerGpuRequirement?: string; // GPU System 1개당 Storage 필요량
   diaBandwidth: string;     // 5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth 를 입력하시오.
 }
 

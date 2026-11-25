@@ -124,7 +124,10 @@ async function startServer() {
           commencementDate?: string;
           usageDuration?: string;
           gpuSystemType?: string;
+          gpuConfig?: string;
+          gpuCoolingType?: string;
           storageCapacity?: string;
+          storagePerGpuRequirement?: string;
           diaBandwidth?: string;
         };
       };
@@ -155,8 +158,8 @@ async function startServer() {
 [사용자 입력 AIDC 인프라 및 운영 조건]
 1. AIDC 사용 시점, GPU서버 가동 시점(Commencement date): ${aidcSpecs.commencementDate || '미입력'}
 2. AIDC 사용 기간: ${aidcSpecs.usageDuration || '미입력'}
-3. 사용하고자 하는 GPU System 종류: ${aidcSpecs.gpuSystemType || '미입력'}
-4. Storage 구축 용량: ${aidcSpecs.storageCapacity || '미입력'}
+3. 사용하고자 하는 GPU System 종류: ${aidcSpecs.gpuSystemType || '미입력'}${aidcSpecs.gpuConfig || aidcSpecs.gpuCoolingType ? `\n   - GPU 구성 / 권장 냉각 방식: ${[aidcSpecs.gpuConfig, aidcSpecs.gpuCoolingType].filter(Boolean).join(', ')}` : ''}
+4. Storage 구축 용량: ${aidcSpecs.storageCapacity || '미입력'}${aidcSpecs.storagePerGpuRequirement ? `\n   - GPU System 1개당 Storage 필요량: ${aidcSpecs.storagePerGpuRequirement}` : ''}
 5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth: ${aidcSpecs.diaBandwidth || '미입력'}
 `
         : '';
@@ -321,7 +324,10 @@ ${CORE_TAXONOMY_CONTEXT}
           commencementDate?: string;
           usageDuration?: string;
           gpuSystemType?: string;
+          gpuConfig?: string;
+          gpuCoolingType?: string;
           storageCapacity?: string;
+          storagePerGpuRequirement?: string;
           diaBandwidth?: string;
         };
       };
@@ -360,8 +366,8 @@ ${CORE_TAXONOMY_CONTEXT}
 - 사용자 입력 AIDC 조건:
   1) AIDC 사용 시점, GPU서버 가동 시점(Commencement date): ${aidcSpecs.commencementDate || '미입력'}
   2) AIDC 사용 기간: ${aidcSpecs.usageDuration || '미입력'}
-  3) GPU System 종류: ${aidcSpecs.gpuSystemType || '미입력'}
-  4) Storage 구축 용량: ${aidcSpecs.storageCapacity || '미입력'}
+  3) GPU System 종류: ${aidcSpecs.gpuSystemType || '미입력'}${aidcSpecs.gpuConfig || aidcSpecs.gpuCoolingType ? ` (GPU 구성 / 권장 냉각: ${[aidcSpecs.gpuConfig, aidcSpecs.gpuCoolingType].filter(Boolean).join(', ')})` : ''}
+  4) Storage 구축 용량: ${aidcSpecs.storageCapacity || '미입력'}${aidcSpecs.storagePerGpuRequirement ? ` (GPU System 1개당 Storage 필요량: ${aidcSpecs.storagePerGpuRequirement})` : ''}
   5) 인터넷전용회선(DIA) Bandwidth: ${aidcSpecs.diaBandwidth || '미입력'}`
         : '';
 
