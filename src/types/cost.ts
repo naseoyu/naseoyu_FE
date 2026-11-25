@@ -80,6 +80,7 @@ export type AnalysisFocusArea = 'all' | 'power' | 'depreciation' | 'opex_only' |
 export interface AidcProjectSpecs {
   commencementDate: string; // 1. AIDC 사용 시점, GPU서버 가동 시점(Commencement date)
   usageDuration: string;    // 2. AIDC 사용 기간
+  usageEndDate?: string;    // AIDC 사용 기간 종료일 (YYYY-MM-DD)
   gpuSystemType: string;    // 3. 사용하고자 하는 GPU System 종류를 선택하시오.
   gpuConfig?: string;       // GPU 구성
   gpuCoolingType?: string;  // 데이터센터 권장 냉각 방식

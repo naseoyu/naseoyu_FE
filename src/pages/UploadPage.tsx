@@ -206,11 +206,73 @@ export const UploadPage: React.FC<UploadPageProps> = ({
     return cleanBase ? `AIDC 비용 문서 #${seq} (${cleanBase})` : `AIDC 비용 문서 #${seq}`;
   };
 
+  const parseDurationToMonths = (durationText: string): number | null => {
+    const trimmed = durationText.trim();
+    if (!trimmed) return null;
+
+    const yearAndMonthMatch = trimmed.match(/^[^()]*?(\d+(?:\.\d+)?)\s*년\s*(\d+)\s*개월/);
+    if (yearAndMonthMatch) {
+      const months =
+        Math.round(Number(yearAndMonthMatch[1]) * 12) + Number(yearAndMonthMatch[2]);
+      return months > 0 ? months : null;
+    }
+
+    const monthMatch = trimmed.match(/(\d+)\s*개월/);
+    if (monthMatch) {
+      const months = Number(monthMatch[1]);
+      return months > 0 ? months : null;
+    }
+
+    const yearMatch = trimmed.match(/(\d+(?:\.\d+)?)\s*년/);
+    if (yearMatch) {
+      const months = Math.round(Number(yearMatch[1]) * 12);
+      return months > 0 ? months : null;
+    }
+
+    if (/^\d+$/.test(trimmed)) {
+      const months = Number(trimmed);
+      return months > 0 ? months : null;
+    }
+
+    return null;
+  };
+
+  const calculateUsageEndDate = (
+    commencementDate: string,
+    durationText: string
+  ): string | null => {
+    const dateMatch = commencementDate.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!dateMatch) return null;
+
+    const year = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]);
+    const day = Number(dateMatch[3]);
+    if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const durationMonths = parseDurationToMonths(durationText);
+    if (!durationMonths || durationMonths <= 0 || durationMonths > 60) return null;
+
+    const totalMonths = year * 12 + (month - 1) + durationMonths;
+    const endYear = Math.floor(totalMonths / 12);
+    const endMonthZeroBased = totalMonths % 12;
+    const lastDayOfEndMonth = new Date(endYear, endMonthZeroBased + 1, 0).getDate();
+    const endDay = Math.min(day, lastDayOfEndMonth);
+
+    return `${endYear}-${String(endMonthZeroBased + 1).padStart(2, '0')}-${String(
+      endDay
+    ).padStart(2, '0')}`;
+  };
+
   const updateSpec = <K extends keyof AidcProjectSpecs>(
     key: K,
     value: AidcProjectSpecs[K]
   ) => {
-    onChangeAidcSpecs({ ...aidcSpecs, [key]: value });
+    const nextSpecs: AidcProjectSpecs = { ...aidcSpecs, [key]: value };
+    if (key === 'commencementDate' || key === 'usageDuration') {
+      nextSpecs.usageEndDate =
+        calculateUsageEndDate(nextSpecs.commencementDate, nextSpecs.usageDuration) ?? '';
+    }
+    onChangeAidcSpecs(nextSpecs);
   };
 
   const getSelectedDurationYears = (durationText: string): number => {
@@ -225,13 +287,13 @@ export const UploadPage: React.FC<UploadPageProps> = ({
     return 3;
   };
 
-  const isDurationOverLimit = (() => {
-    const monthMatch = aidcSpecs.usageDuration.match(/(\d+)\s*개월/);
-    if (monthMatch && Number(monthMatch[1]) > 60) return true;
-    const yearMatch = aidcSpecs.usageDuration.match(/(\d+(?:\.\d+)?)\s*년/);
-    if (yearMatch && Number(yearMatch[1]) > 5) return true;
-    return false;
-  })();
+  const parsedDurationMonths = parseDurationToMonths(aidcSpecs.usageDuration);
+  const isDurationOverLimit = parsedDurationMonths !== null && parsedDurationMonths > 60;
+  const monthInputDisplay = parsedDurationMonths !== null ? String(parsedDurationMonths) : '';
+  const usageEndDate = calculateUsageEndDate(
+    aidcSpecs.commencementDate,
+    aidcSpecs.usageDuration
+  );
 
   const sliderYears = getSelectedDurationYears(aidcSpecs.usageDuration);
 
@@ -549,7 +611,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                   htmlFor="pending-doc-title"
                   className="text-xs font-semibold text-[#172033]"
                 >
-                  업로드할 문서 제목 지정 (선택)
+                  업로드 할 문서 제목 지정
                 </label>
                 <span className="text-[11px] text-slate-500">
                   미입력 시 자동 제목이 부여됩니다
@@ -561,7 +623,6 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                   type="text"
                   value={pendingDocTitle}
                   onChange={(e) => setPendingDocTitle(e.target.value)}
-                  placeholder="예: 2026년 1분기 H100 전력·냉각 계약서 (비워두면 임의 자동 지정)"
                   className="flex-1 min-w-0 px-3 py-2 text-xs text-[#172033] bg-white border border-slate-200 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
                 />
                 {pendingDocTitle && (
@@ -956,18 +1017,30 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                 )}
               </div>
 
-              <input
-                id="aidc-usage-duration"
-                type="text"
-                value={aidcSpecs.usageDuration}
-                onChange={(e) => updateSpec('usageDuration', e.target.value)}
-                placeholder="예: 3년 (36개월) · 최대 60개월"
-                className={`w-full px-3.5 py-2.5 text-sm text-[#172033] bg-slate-50 border rounded-[10px] focus:outline-none focus:bg-white focus:ring-1 placeholder:text-slate-400 ${
-                  isDurationOverLimit
-                    ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                    : 'border-slate-200 focus:border-[#2563EB] focus:ring-[#2563EB]'
-                }`}
-              />
+              <div className="relative">
+                <input
+                  id="aidc-usage-duration"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={monthInputDisplay}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
+                    updateSpec('usageDuration', cleaned ? `${cleaned}개월` : '');
+                  }}
+                  placeholder="개월 수로만 입력해 주세요 (최대 60개월)"
+                  className={`w-full pl-3.5 pr-12 py-2.5 text-sm text-[#172033] bg-slate-50 border rounded-[10px] focus:outline-none focus:bg-white focus:ring-1 placeholder:text-slate-400 tabular-nums ${
+                    isDurationOverLimit
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                      : 'border-slate-200 focus:border-[#2563EB] focus:ring-[#2563EB]'
+                  }`}
+                />
+                {monthInputDisplay && (
+                  <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                    개월
+                  </span>
+                )}
+              </div>
 
               {/* Year-based slider bar ending at 5년(60개월) with pixel-aligned ticks */}
               <div className="mt-3 px-3.5 pt-3.5 pb-2.5 rounded-[10px] bg-slate-50 border border-slate-200/80">
@@ -1001,7 +1074,9 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                   {/* Labels positioned to match exact thumb center at each step */}
                   <div className="relative h-8 mt-1">
                     {DURATION_YEAR_STEPS.map((step) => {
-                      const isActive = aidcSpecs.usageDuration === step.value;
+                      const isActive =
+                        aidcSpecs.usageDuration === step.value ||
+                        parsedDurationMonths === step.years * 12;
                       const fraction = (step.years - 1) / 4;
                       return (
                         <button
@@ -1045,6 +1120,25 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                   최대 60개월(5년) 이내로 입력해 주세요.
                 </p>
               )}
+
+              <div className="mt-3">
+                <span className="block text-xs font-semibold text-[#172033] mb-1.5">
+                  AIDC 사용 기간 종료일
+                </span>
+                <div
+                  aria-live="polite"
+                  className={`w-full px-3.5 py-2.5 text-xs rounded-[10px] border transition-colors leading-relaxed ${
+                    usageEndDate
+                      ? 'bg-blue-50/60 border-blue-200 text-[#172033] font-semibold tabular-nums'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  }`}
+                >
+                  {usageEndDate ??
+                    (isDurationOverLimit
+                      ? '사용 기간을 최대 60개월(5년) 이내로 입력하면 종료일이 계산됩니다.'
+                      : '가동 시점(Commencement date)과 사용 기간을 입력하면 연도-월-일 형태로 자동 표시됩니다.')}
+                </div>
+              </div>
             </div>
 
             {/* 3. 사용하고자 하는 GPU System 종류를 선택하시오. */}

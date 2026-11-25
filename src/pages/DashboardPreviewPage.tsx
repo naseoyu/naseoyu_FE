@@ -236,6 +236,11 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
                 <span className="font-semibold text-[#172033]">
                   {aidcSpecs.usageDuration || '미입력'}
                 </span>
+                {aidcSpecs.usageEndDate && (
+                  <span className="block text-[11px] text-slate-500 mt-0.5 leading-snug tabular-nums">
+                    종료일: {aidcSpecs.usageEndDate}
+                  </span>
+                )}
               </div>
               <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
                 <span className="block text-[11px] text-slate-500">GPU System</span>
