@@ -125,5 +125,32 @@ export interface PromptChatMessage {
   timestamp: Date;
 }
 
+// Saved Analysis Run History Snapshot (001, 002, ...)
+export interface AnalysisHistoryEntry {
+  id: string;
+  runKey: number;
+  sequenceNumber: number;
+  title: string;
+  memo: string;
+  analysisRequest: string;
+  timeframe: AnalysisTimeframe;
+  focusArea: AnalysisFocusArea;
+  aidcSpecs: AidcProjectSpecs;
+  documents: UploadedDataCenterDoc[];
+  result: CustomAnalysisResult | null;
+  createdAt: string;
+  isAdditional?: boolean;
+  addedDocCount?: number;
+}
+
+// Payload submitted when running an additional document analysis from DashboardPreviewPage
+export interface AdditionalAnalysisPayload {
+  newDocs: UploadedDataCenterDoc[];
+  title: string;
+  memo: string;
+  request: string;
+  includeExistingDocs: boolean;
+}
+
 // Screen Routing
 export type ServicePage = 'landing' | 'upload' | 'analysis_loading' | 'dashboard_preview';

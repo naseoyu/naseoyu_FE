@@ -111,6 +111,8 @@ async function startServer() {
     try {
       const {
         documents = [],
+        analysisTitle = '',
+        isAdditional = false,
         analysisRequest = '',
         requestMemo = '',
         timeframe = 'all',
@@ -118,6 +120,8 @@ async function startServer() {
         aidcSpecs,
       } = req.body as {
         documents: IncomingDocPayload[];
+        analysisTitle?: string;
+        isAdditional?: boolean;
         analysisRequest?: string;
         requestMemo?: string;
         timeframe?: string;
@@ -173,6 +177,7 @@ async function startServer() {
 ${docDescriptions.join('\n')}
 ${specsBlock}
 [사용자 맞춤 분석 요청 사항]
+- 분석 회차 제목: "${analysisTitle.trim() || '미지정'}"${isAdditional ? ' (이전 결과에 서류를 추가 업로드한 추가 분석 회차)' : ''}
 - 직접 입력 요청: "${analysisRequest.trim() || '업로드된 문서를 바탕으로 11대 표준 비용 항목 전반과 최적화 방안을 분석해줘'}"
 - 사용자 요청 요약 메모: "${requestMemo.trim() || '없음'}"
 - 선택된 분석 기간 조건: ${timeframe}

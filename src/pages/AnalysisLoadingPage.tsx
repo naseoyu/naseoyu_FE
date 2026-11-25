@@ -20,6 +20,9 @@ import {
 
 interface AnalysisLoadingPageProps {
   uploadedDocs: UploadedDataCenterDoc[];
+  analysisTitle?: string;
+  isAdditionalRun?: boolean;
+  addedDocCount?: number;
   analysisRequest: string;
   requestMemo?: string;
   timeframe: AnalysisTimeframe;
@@ -48,6 +51,9 @@ const FOCUS_LABELS: Record<AnalysisFocusArea, string> = {
 
 export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   uploadedDocs,
+  analysisTitle = '',
+  isAdditionalRun = false,
+  addedDocCount = 0,
   analysisRequest,
   requestMemo = '',
   timeframe,
@@ -161,6 +167,8 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
             documentSummary: d.documentSummary,
             base64Data: d.base64Data,
           })),
+          analysisTitle,
+          isAdditional: isAdditionalRun,
           analysisRequest,
           requestMemo,
           timeframe: TIMEFRAME_LABELS[timeframe],
@@ -188,7 +196,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
           : '분석 서버와 연결할 수 없습니다.'
       );
     }
-  }, [uploadedDocs, analysisRequest, requestMemo, timeframe, focusArea, aidcSpecs, onAnalysisComplete]);
+  }, [uploadedDocs, analysisTitle, isAdditionalRun, analysisRequest, requestMemo, timeframe, focusArea, aidcSpecs, onAnalysisComplete]);
 
   useEffect(() => {
     void runAnalysis();
@@ -259,7 +267,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
         <div className="card-enterprise p-6 sm:p-8 mb-8 bg-white">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 pb-6 border-b border-slate-100">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#2563EB] mb-1.5">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#2563EB] mb-1.5">
                 {isCompleted ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -276,17 +284,24 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
                     <span>맞춤형 AI 분석 진행 중</span>
                   </>
                 )}
+                {isAdditionalRun && (
+                  <span className="px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-[#2563EB] border border-blue-200 rounded-[6px]">
+                    서류 추가 분석{addedDocCount > 0 ? ` (+${addedDocCount}건)` : ''}
+                  </span>
+                )}
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-[#172033] tracking-tight text-balance">
                 {isCompleted
                   ? '요청 조건에 맞춘 데이터센터 분석이 완료되었습니다'
+                  : isAdditionalRun
+                  ? '추가 업로드된 서류를 통합하여 재분석하고 있습니다'
                   : '업로드된 서류를 요청 사항에 맞춰 분석하고 있습니다'}
               </h1>
 
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
                 {isCompleted
-                  ? '다중 문서 추출 데이터와 요청 조건을 반영한 비용 분석 결과를 대시보드에서 확인하세요.'
+                  ? '다중 문서 추출 데이터와 요청 조건을 반영한 비용 분석 결과 및 히스토리를 대시보드에서 확인하세요.'
                   : '문서 내 비용 표와 운영 지표를 파싱하여 사용자 요청 조건에 맞게 구조화하고 있습니다.'}
               </p>
             </div>
@@ -321,6 +336,11 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
                 <MessageSquareText className="w-3.5 h-3.5 text-[#2563EB]" />
                 <span>적용된 분석 요청 사항</span>
               </div>
+              {analysisTitle.trim() && (
+                <div className="text-xs font-bold text-[#172033]">
+                  제목: {analysisTitle}
+                </div>
+              )}
               <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
                 {effectiveRequestLabel}
               </p>

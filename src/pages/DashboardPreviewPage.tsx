@@ -5,9 +5,10 @@ import {
   Download,
   ShieldCheck,
   FileText,
-  MessageSquareText,
   TrendingDown,
   AlertCircle,
+  FilePlus2,
+  History,
 } from 'lucide-react';
 import {
   UploadedDataCenterDoc,
@@ -15,17 +16,27 @@ import {
   AnalysisTimeframe,
   AnalysisFocusArea,
   AidcProjectSpecs,
+  AnalysisHistoryEntry,
+  AdditionalAnalysisPayload,
 } from '../types';
 import { CostCategoryTaxonomy } from '../components/cost/CostCategoryTaxonomy';
+import { AdditionalAnalysisPanel } from '../components/cost/AdditionalAnalysisPanel';
+import { AnalysisHistoryPanel } from '../components/cost/AnalysisHistoryPanel';
 
 interface DashboardPreviewPageProps {
   uploadedDocs: UploadedDataCenterDoc[];
+  analysisTitle?: string;
   analysisRequest: string;
   requestMemo?: string;
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
   aidcSpecs: AidcProjectSpecs;
   analysisResult: CustomAnalysisResult | null;
+  analysisHistory: AnalysisHistoryEntry[];
+  activeHistoryId: string | null;
+  onSelectHistoryEntry: (entryId: string) => void;
+  onDeleteHistoryEntry: (entryId: string) => void;
+  onStartAdditionalAnalysis: (payload: AdditionalAnalysisPayload) => void;
   onNewAnalysis: () => void;
   onEditRequest: () => void;
 }
@@ -47,21 +58,42 @@ const FOCUS_LABELS: Record<AnalysisFocusArea, string> = {
 
 export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
   uploadedDocs,
+  analysisTitle = '',
   analysisRequest,
   requestMemo = '',
   timeframe,
   focusArea,
   aidcSpecs,
   analysisResult,
+  analysisHistory,
+  activeHistoryId,
+  onSelectHistoryEntry,
+  onDeleteHistoryEntry,
+  onStartAdditionalAnalysis,
   onNewAnalysis,
   onEditRequest,
 }) => {
   const [downloadNotice, setDownloadNotice] = useState(false);
+  const [showAdditionalPanel, setShowAdditionalPanel] = useState(false);
 
   const handleDownloadReport = () => {
     setDownloadNotice(true);
     setTimeout(() => setDownloadNotice(false), 3000);
   };
+
+  const scrollToHistory = () => {
+    const el = document.getElementById('analysis-history-section');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const activeEntry = analysisHistory.find((h) => h.id === activeHistoryId);
+  const activeSeqLabel = activeEntry
+    ? String(activeEntry.sequenceNumber).padStart(3, '0')
+    : null;
+  const nextSequenceNumber =
+    analysisHistory.length > 0
+      ? Math.max(...analysisHistory.map((e) => e.sequenceNumber)) + 1
+      : 1;
 
   const primaryDocName = uploadedDocs[0]?.name || 'DataCenter_Cost_Report.pdf';
   const appliedScope =
@@ -72,12 +104,17 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
     <div className="w-full min-h-full bg-slate-50 py-10 px-6 lg:px-10">
       <div className="max-w-[1100px] mx-auto">
         {/* Top Control Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200 mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-200 mb-8">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#2563EB] mb-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#2563EB] mb-1">
               <span>AI Data Center Cost Intelligence</span>
               <span aria-hidden="true">/</span>
               <span className="text-slate-500">운영비 분석 결과 대시보드</span>
+              {activeSeqLabel && (
+                <span className="px-2 py-0.5 text-[11px] font-mono font-bold bg-[#172033] text-white rounded-[5px] tabular-nums">
+                  #{activeSeqLabel}
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-bold text-[#172033] tracking-tight text-balance">
               데이터센터 맞춤 비용 분석 및 예측 결과
@@ -95,11 +132,33 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowAdditionalPanel((v) => !v)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-[8px] transition-colors cursor-pointer whitespace-nowrap ${
+                showAdditionalPanel
+                  ? 'bg-[#172033] text-white'
+                  : 'bg-[#2563EB] text-white hover:bg-blue-700'
+              }`}
+            >
+              <FilePlus2 className="w-3.5 h-3.5" />
+              <span>서류 추가 · 추가 분석</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={scrollToHistory}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-[#172033] bg-white border border-slate-300 rounded-[8px] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors cursor-pointer whitespace-nowrap tabular-nums"
+            >
+              <History className="w-3.5 h-3.5 text-[#2563EB]" />
+              <span>히스토리 ({analysisHistory.length})</span>
+            </button>
+
             <button
               type="button"
               onClick={handleDownloadReport}
-              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>보고서 다운로드</span>
@@ -108,7 +167,7 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
             <button
               type="button"
               onClick={onEditRequest}
-              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
             >
               <span>서류·요청 수정</span>
             </button>
@@ -116,13 +175,34 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
             <button
               type="button"
               onClick={onNewAnalysis}
-              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-[#2563EB] hover:bg-blue-700 rounded-[8px] transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-[8px] transition-colors cursor-pointer whitespace-nowrap"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
               <span>새 분석</span>
             </button>
           </div>
         </div>
+
+        {/* Inline Additional Document Upload & Re-Analysis Panel */}
+        {showAdditionalPanel && (
+          <AdditionalAnalysisPanel
+            existingDocs={uploadedDocs}
+            nextSequenceNumber={nextSequenceNumber}
+            onCancel={() => setShowAdditionalPanel(false)}
+            onSubmit={(payload) => {
+              setShowAdditionalPanel(false);
+              onStartAdditionalAnalysis(payload);
+            }}
+          />
+        )}
+
+        {/* Analysis History & Comparison Section (001, 002...) */}
+        <AnalysisHistoryPanel
+          history={analysisHistory}
+          activeHistoryId={activeHistoryId}
+          onSelectEntry={onSelectHistoryEntry}
+          onDeleteEntry={onDeleteHistoryEntry}
+        />
 
         {/* Download Toast Notification */}
         {downloadNotice && (
@@ -137,38 +217,14 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
           </div>
         )}
 
-        {/* Active Request & AIDC Specs Banner */}
-        <div className="mb-8 p-5 rounded-[12px] bg-white border border-slate-200 space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-[8px] bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
-              <MessageSquareText className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 mb-0.5">
-                <span className="font-bold text-[#172033]">적용된 맞춤 분석 요청</span>
-                <span aria-hidden="true">·</span>
-                <span>{appliedScope}</span>
-              </div>
-              <p className="text-sm font-medium text-[#172033] leading-relaxed">
-                {analysisRequest.trim()
-                  ? analysisRequest
-                  : '11대 표준 비용 항목 전반 및 최적화 로드맵 분석'}
-              </p>
-              {requestMemo.trim() && (
-                <div className="mt-2 p-2.5 rounded-[8px] bg-amber-50/60 border border-amber-200/80 text-xs text-slate-700 whitespace-pre-wrap">
-                  <span className="font-semibold text-amber-800 mr-1.5">요약 메모:</span>
-                  {requestMemo}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {(aidcSpecs.commencementDate ||
-            aidcSpecs.usageDuration ||
-            aidcSpecs.gpuSystemType ||
-            aidcSpecs.storageCapacity ||
-            aidcSpecs.diaBandwidth) && (
-            <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+        {/* AIDC Specs Summary (shown only when specs are entered) */}
+        {(aidcSpecs.commencementDate ||
+          aidcSpecs.usageDuration ||
+          aidcSpecs.gpuSystemType ||
+          aidcSpecs.storageCapacity ||
+          aidcSpecs.diaBandwidth) && (
+          <div className="mb-8 p-5 rounded-[12px] bg-white border border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
               <div className="p-2.5 rounded-[8px] bg-slate-50 border border-slate-200/80">
                 <span className="block text-[11px] text-slate-500">가동 시점</span>
                 <span className="font-semibold text-[#172033] tabular-nums">
@@ -215,8 +271,8 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
                 </span>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Tailored LLM Analysis Result Sections (when /api/analyze returned live output) */}
         {analysisResult ? (

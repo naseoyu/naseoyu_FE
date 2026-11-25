@@ -26,6 +26,7 @@ import {
 interface PromptSidebarProps {
   currentPage: ServicePage;
   uploadedDocs: UploadedDataCenterDoc[];
+  analysisTitle?: string;
   analysisRequest: string;
   requestMemo?: string;
   aidcSpecs?: AidcProjectSpecs;
@@ -50,6 +51,7 @@ const MAX_SIDEBAR_WIDTH = 680;
 export const PromptSidebar: React.FC<PromptSidebarProps> = ({
   currentPage,
   uploadedDocs,
+  analysisTitle = '',
   analysisRequest,
   requestMemo = '',
   aidcSpecs,
@@ -348,6 +350,13 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
           <p className="text-[11px] text-slate-400">
             서류를 업로드하면 문서 내용을 참조해 답변합니다.
           </p>
+        )}
+
+        {analysisTitle.trim() && (
+          <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600">
+            <span className="font-semibold text-[#172033]">분석 제목: </span>
+            <span className="font-medium text-slate-800">{analysisTitle}</span>
+          </div>
         )}
 
         {analysisRequest.trim() && (

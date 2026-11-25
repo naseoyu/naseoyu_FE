@@ -29,6 +29,7 @@ import { SAMPLE_DATA_CENTER_PRESETS } from '../data/costTaxonomyData';
 
 interface UploadPageProps {
   uploadedDocs: UploadedDataCenterDoc[];
+  analysisTitle: string;
   analysisRequest: string;
   requestMemo: string;
   timeframe: AnalysisTimeframe;
@@ -39,6 +40,7 @@ interface UploadPageProps {
   onRemoveDoc: (docId: string) => void;
   onUpdateDocTitle: (docId: string, newTitle: string, isCustomTitle?: boolean) => void;
   onClearDocs: () => void;
+  onChangeAnalysisTitle: (value: string) => void;
   onChangeAnalysisRequest: (value: string) => void;
   onChangeRequestMemo: (value: string) => void;
   onChangeTimeframe: (value: AnalysisTimeframe) => void;
@@ -173,6 +175,7 @@ const DIA_BANDWIDTH_PRESETS = ['10 Gbps', '100 Gbps', '400 Gbps'];
 
 export const UploadPage: React.FC<UploadPageProps> = ({
   uploadedDocs,
+  analysisTitle,
   analysisRequest,
   requestMemo,
   timeframe,
@@ -183,6 +186,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   onRemoveDoc,
   onUpdateDocTitle,
   onClearDocs,
+  onChangeAnalysisTitle,
   onChangeAnalysisRequest,
   onChangeRequestMemo,
   onChangeTimeframe,
@@ -404,6 +408,9 @@ export const UploadPage: React.FC<UploadPageProps> = ({
 
   const buildRequestSummaryLines = (): string[] => {
     const lines: string[] = [];
+    if (analysisTitle.trim()) {
+      lines.push(`분석 제목: ${analysisTitle.trim()}`);
+    }
     if (uploadedDocs.length > 0) {
       lines.push(
         `대상 문서(${uploadedDocs.length}건): ${uploadedDocs
@@ -843,6 +850,29 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Analysis Run Title (Shown in History 001, 002...) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label
+                    htmlFor="analysis-run-title"
+                    className="text-xs font-semibold text-[#172033]"
+                  >
+                    분석 제목 (히스토리 비교용)
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    미입력 시 자동 제목 부여
+                  </span>
+                </div>
+                <input
+                  id="analysis-run-title"
+                  type="text"
+                  value={analysisTitle}
+                  onChange={(e) => onChangeAnalysisTitle(e.target.value)}
+                  placeholder="예: H100 클러스터 3년 운영비 1차 분석"
+                  className="w-full px-3 py-2 text-xs font-medium text-[#172033] bg-white border border-slate-200 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
+                />
               </div>
 
               {/* Editable Notepad Area */}
