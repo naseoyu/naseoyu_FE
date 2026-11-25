@@ -257,7 +257,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
               <div className="p-4 rounded-[12px] bg-blue-50/70 border border-blue-200 text-xs text-[#172033] flex items-center gap-3">
                 <FileCheck className="w-4 h-4 text-[#2563EB] shrink-0" />
                 <p className="leading-relaxed">
-                  <strong>문서 검증 완료:</strong> 11대 기본 비용 항목(전력료, 감가상각비, 수선유지비 등)에 대한 LLM 5단계 분석 준비가 완료되었습니다.
+                  <strong>문서 검증 완료:</strong> 11대 기본 비용 항목(전력료, 감가상각비, 수선유지비 등)에 대한 LLM 3단계 분석 준비가 완료되었습니다.
                 </p>
               </div>
 

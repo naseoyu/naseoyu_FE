@@ -46,8 +46,8 @@ export interface ConditionalCostItem {
   growthRatePercent?: number; // e.g. 수도세 인상률 적용
 }
 
-// 5-Stage Analysis Step Model
-export type AnalysisStepId = 1 | 2 | 3 | 4 | 5;
+// 3-Stage Analysis Step Model
+export type AnalysisStepId = 1 | 2 | 3;
 
 export interface AnalysisStepInfo {
   step: AnalysisStepId;

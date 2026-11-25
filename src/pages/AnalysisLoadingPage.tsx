@@ -32,42 +32,28 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
-  // 5 Steps specified in Prompt Section 5
+  // 3 Steps analysis process
   const steps: AnalysisStepInfo[] = [
     {
       step: 1,
-      title: 'STEP 1. PDF 문서 읽기 및 텍스트 추출',
-      subtitle: 'PDF Document Ingestion & Text Extraction',
-      description: '업로드된 PDF의 표, 서식, 인프라 사양 및 비용 내역 텍스트 블록을 읽고 파싱합니다.',
+      title: 'STEP 1. 문서 읽기 및 AIDC 운영 데이터 확인',
+      subtitle: 'Document Ingestion & AIDC Operational Data Verification',
+      description: '업로드된 PDF의 표·텍스트를 추출하고 GPU 가속기 기종, 랙 수량, 전력 용량(kW), 냉각 방식 등 AIDC 운영 데이터를 대조합니다.',
       status: currentStep > 1 || isCompleted ? 'completed' : currentStep === 1 ? 'in_progress' : 'pending',
     },
     {
       step: 2,
-      title: 'STEP 2. 데이터센터 운영 데이터 확인',
-      subtitle: 'Facility & Operational Data Verification',
-      description: 'GPU 가속기 기종, 랙 수량, 전력 용량(kW), 냉각 방식(공랭/액체냉각)을 대조합니다.',
+      title: 'STEP 2. 비용 항목 분석 및 운영비 예측',
+      subtitle: 'Cost Categorization & Opex Projection',
+      description: '전력료, 회선, 감가상각비, 수선유지비 등 11대 기본 비용 체계로 항목을 매핑하고 고정비·변동비를 구분해 중장기 운영비를 예측합니다.',
       status: currentStep > 2 || isCompleted ? 'completed' : currentStep === 2 ? 'in_progress' : 'pending',
     },
     {
       step: 3,
-      title: 'STEP 3. 주요 비용 항목 분류 및 분석',
-      subtitle: '11 Core Cost Categories Mapping',
-      description: '전력료, 회선, 감가상각비, 수선유지비 등 11대 기본 비용 체계로 항목을 매핑합니다.',
-      status: currentStep > 3 || isCompleted ? 'completed' : currentStep === 3 ? 'in_progress' : 'pending',
-    },
-    {
-      step: 4,
-      title: 'STEP 4. 운영비 계산 및 미래 비용 예측',
-      subtitle: 'Opex Modeling & Future Cost Projection',
-      description: '고정비, 사용량 연동 비용, 자산 감가상각비를 구분하여 중장기 운영비를 예측합니다.',
-      status: currentStep > 4 || isCompleted ? 'completed' : currentStep === 4 ? 'in_progress' : 'pending',
-    },
-    {
-      step: 5,
-      title: 'STEP 5. 비용 최적화 방안 및 추천 결과 생성',
+      title: 'STEP 3. 비용 최적화 방안 및 추천 결과 생성',
       subtitle: 'Cost Optimization Roadmap & AI Recommendations',
       description: '유휴 리소스 회수, PUE 효율 개선 등 정량적 절감 조치와 우선순위 로드맵을 수립합니다.',
-      status: isCompleted ? 'completed' : currentStep === 5 ? 'in_progress' : 'pending',
+      status: isCompleted ? 'completed' : currentStep === 3 ? 'in_progress' : 'pending',
     },
   ];
 
@@ -89,19 +75,15 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
         const next = prev + 3;
         if (next >= 100) {
           setIsCompleted(true);
-          setCurrentStep(5);
+          setCurrentStep(3);
           clearInterval(interval);
           return 100;
         }
 
         // Advance steps naturally based on progress thresholds
-        if (next >= 85) {
-          setCurrentStep(5);
-        } else if (next >= 65) {
-          setCurrentStep(4);
-        } else if (next >= 42) {
+        if (next >= 68) {
           setCurrentStep(3);
-        } else if (next >= 20) {
+        } else if (next >= 35) {
           setCurrentStep(2);
         } else {
           setCurrentStep(1);
@@ -109,7 +91,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
 
         return next;
       });
-    }, 220); // Takes ~7 seconds to walk through all 5 stages
+    }, 220);
 
     return () => clearInterval(interval);
   }, [isCompleted]);
@@ -117,7 +99,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   // Fast forward for rapid evaluation testing
   const handleFastForward = () => {
     setProgressPercent(100);
-    setCurrentStep(5);
+    setCurrentStep(3);
     setIsCompleted(true);
   };
 
@@ -158,7 +140,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
                 ) : (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700 font-bold">5단계 분석 완료</span>
+                    <span className="text-emerald-700 font-bold">3단계 분석 완료</span>
                   </>
                 )}
               </div>
@@ -211,7 +193,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
           </div>
         </div>
 
-        {/* 5 Discrete Steps Breakdown (Required by Prompt) */}
+        {/* 3 Discrete Steps Breakdown */}
         <div className="space-y-4 mb-8">
           <h2 className="text-sm font-bold text-[#172033] uppercase tracking-wider mb-2">
             단계별 분석 프로세스
