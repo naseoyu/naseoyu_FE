@@ -3,14 +3,14 @@
  */
 
 // Classification of Cost Behavior
-export type CostClassification = 
+export type CostClassification =
   | 'fixed'            // 고정비
   | 'usage_based'      // 사용량 연동 비용
   | 'depreciation'     // 자산 감가상각비
   | 'conditional';     // 조건부 입력 비용
 
 // Entry Status (Preventing arbitrary 0 won or estimated values)
-export type CostEntryStatus = 
+export type CostEntryStatus =
   | 'entered'          // 정상 입력됨
   | 'not_entered'      // 미입력 상태
   | 'excluded';        // 산정 제외 상태
@@ -57,7 +57,7 @@ export interface AnalysisStepInfo {
   status: 'pending' | 'in_progress' | 'completed';
 }
 
-// Uploaded Document Model
+// Uploaded Document Model (supports multiple documents & optional base64 PDF payload)
 export interface UploadedDataCenterDoc {
   id: string;
   name: string;
@@ -66,6 +66,49 @@ export interface UploadedDataCenterDoc {
   pageCount: number;
   sourceType: 'local_upload' | 'preset_sample';
   documentSummary?: string;
+  base64Data?: string;
+  note?: string;
+}
+
+// User Analysis Scope Options
+export type AnalysisTimeframe = 'all' | '1y' | '3y' | '5y';
+export type AnalysisFocusArea = 'all' | 'power' | 'depreciation' | 'opex_only' | 'maintenance';
+
+// Custom LLM Analysis Result returned by /api/analyze
+export interface CustomAnalysisResult {
+  appliedScopeLabel: string;
+  executiveSummary: string;
+  keyMetrics: Array<{
+    label: string;
+    value: string;
+    context: string;
+  }>;
+  highlightedItemNumbers: number[];
+  itemInsights: Array<{
+    itemNumber: number;
+    focusNote: string;
+    priority: 'high' | 'medium' | 'normal' | string;
+  }>;
+  documentInsights: Array<{
+    documentName: string;
+    detectedFocus: string;
+    keyFindings: string;
+  }>;
+  recommendations: Array<{
+    title: string;
+    impactEstimate: string;
+    actionDetail: string;
+  }>;
+  generatedAt?: string;
+  modelUsed?: string;
+}
+
+// Persistent Left-Sidebar LLM Chat Message
+export interface PromptChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'error';
+  content: string;
+  timestamp: Date;
 }
 
 // Screen Routing
