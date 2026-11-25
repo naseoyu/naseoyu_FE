@@ -67,9 +67,9 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   const steps: AnalysisStepInfo[] = [
     {
       step: 1,
-      title: 'STEP 1. 다중 문서 읽기 및 요청 조건 파싱',
-      subtitle: 'Multi-Document Ingestion & Request Parsing',
-      description: `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 추출하고 "${TIMEFRAME_LABELS[timeframe]} / ${FOCUS_LABELS[focusArea]}" 분석 조건을 매핑합니다.`,
+      title: 'STEP 1. 문서 읽기 및 AIDC 운영 데이터 확인',
+      subtitle: 'Document Ingestion & AIDC Data Check',
+      description: `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 추출하고 AIDC 운영 데이터 및 "${TIMEFRAME_LABELS[timeframe]} / ${FOCUS_LABELS[focusArea]}" 분석 조건을 확인합니다.`,
       status:
         currentStep > 1 || isCompleted
           ? 'completed'
@@ -79,10 +79,10 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     },
     {
       step: 2,
-      title: 'STEP 2. 요청 맞춤 비용 항목 추출 및 비교 분석',
-      subtitle: 'Tailored Cost Extraction & Projection',
+      title: 'STEP 2. 비용 항목 분석 및 운영비 예측',
+      subtitle: 'Cost Breakdown & OPEX Forecasting',
       description:
-        '사용자 요청 사항에 해당하는 핵심 비용 항목(전력료, 감가상각비, 외주용역비 등)을 선별·교차 대조하여 기간별 운영비를 산정합니다.',
+        '사용자 요청 사항에 해당하는 핵심 비용 항목(전력료, 감가상각비, 외주용역비 등)을 분석하여 기간별 운영비를 예측합니다.',
       status:
         currentStep > 2 || isCompleted
           ? 'completed'
@@ -92,10 +92,10 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     },
     {
       step: 3,
-      title: 'STEP 3. 맞춤형 최적화 방안 및 대시보드 리포트 생성',
-      subtitle: 'Optimization Roadmap & Report Synthesis',
+      title: 'STEP 3. 비용 최적화 방안 및 추천 결과 생성',
+      subtitle: 'Cost Optimization & Recommendation Synthesis',
       description:
-        '요청 조건에 부합하는 정량적 절감 포인트와 문서별 핵심 인사이트를 구조화된 대시보드로 완성합니다.',
+        '분석된 비용 구조를 바탕으로 정량적 절감 포인트와 맞춤형 비용 최적화 추천 결과를 생성합니다.',
       status: isCompleted
         ? 'completed'
         : currentStep === 3
