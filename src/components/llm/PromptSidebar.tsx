@@ -385,7 +385,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <span className="block text-[11px] font-semibold text-slate-600">
-                  AI FinOps 어시스턴트
+                  AI 어시스턴트
                 </span>
                 <div className="inline-block max-w-[92%] px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-white border border-slate-200 text-xs text-[#172033] leading-relaxed shadow-xs">
                   <p className="font-semibold mb-1">
@@ -545,7 +545,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
                     <div className="min-w-0 flex-1 space-y-1.5">
                       {!isConsecutiveSameRole && (
                         <span className="block text-[11px] font-semibold text-slate-600 pl-0.5">
-                          AI FinOps 어시스턴트
+                          AI 어시스턴트
                         </span>
                       )}
                       <div className="flex items-end gap-1.5 max-w-full">
@@ -603,7 +603,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
                 </div>
                 <div className="min-w-0 flex-1 space-y-1">
                   <span className="block text-[11px] font-semibold text-slate-600 pl-0.5">
-                    AI FinOps 어시스턴트
+                    AI 어시스턴트
                   </span>
                   <div className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-white border border-slate-200 text-xs text-slate-500 shadow-xs">
                     <span className="inline-flex items-center gap-1" aria-hidden="true">
