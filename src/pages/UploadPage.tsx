@@ -15,6 +15,7 @@ import {
   Pencil,
   Loader2,
   RefreshCw,
+  NotebookPen,
 } from 'lucide-react';
 import {
   UploadedDataCenterDoc,
@@ -596,13 +597,13 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                     type="text"
                     value={pendingDocTitle}
                     onChange={(e) => setPendingDocTitle(e.target.value)}
-                    className="flex-1 min-w-0 px-3 py-2 text-xs text-[#172033] bg-white border border-slate-200 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
+                    className="flex-1 min-w-0 px-3 py-2 text-xs text-[#172033] bg-blue-50/70 border border-blue-200/80 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-blue-700/40 transition-colors"
                   />
                   {pendingDocTitle && (
                     <button
                       type="button"
                       onClick={() => setPendingDocTitle('')}
-                      className="px-2.5 py-2 text-[11px] font-medium text-slate-500 hover:text-[#172033] bg-white border border-slate-200 rounded-[8px] cursor-pointer shrink-0"
+                      className="px-2.5 py-2 text-[11px] font-medium text-blue-700 hover:text-[#172033] bg-blue-50/70 border border-blue-200/80 rounded-[8px] cursor-pointer shrink-0 transition-colors"
                     >
                       지우기
                     </button>
@@ -611,35 +612,45 @@ export const UploadPage: React.FC<UploadPageProps> = ({
               </div>
 
               <div className="pt-3 border-t border-slate-200/80">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                  <label
-                    htmlFor="upload-request-memo"
-                    className="text-xs font-semibold text-[#172033]"
-                  >
-                    메모
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                <div
+                  className="bg-amber-50/70 border border-amber-200/70 rounded-[8px] px-2.5 py-2 focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400 transition-colors"
+                  title="메모"
+                >
+                  <div className="flex items-start gap-2">
+                    <label
+                      htmlFor="upload-request-memo"
+                      className="shrink-0 mt-0.5 cursor-pointer"
+                      title="메모"
+                    >
+                      <NotebookPen
+                        className="w-3.5 h-3.5 text-amber-700"
+                        aria-label="메모"
+                      />
+                    </label>
+                    <textarea
+                      id="upload-request-memo"
+                      aria-label="메모"
+                      value={requestMemo}
+                      onChange={(e) => onChangeRequestMemo(e.target.value)}
+                      rows={3}
+                      className="w-full text-xs text-slate-700 bg-transparent resize-y focus:outline-none placeholder:text-amber-700/50 leading-snug"
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-2 mt-1">
+                    <span className="text-[11px] font-mono text-amber-800/60 tabular-nums">
                       {requestMemo.length}자
                     </span>
                     {requestMemo && (
                       <button
                         type="button"
                         onClick={() => onChangeRequestMemo('')}
-                        className="text-[11px] font-medium text-slate-500 hover:text-red-600 cursor-pointer"
+                        className="text-[11px] font-medium text-amber-800/70 hover:text-red-600 cursor-pointer"
                       >
                         지우기
                       </button>
                     )}
                   </div>
                 </div>
-                <textarea
-                  id="upload-request-memo"
-                  value={requestMemo}
-                  onChange={(e) => onChangeRequestMemo(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 text-xs text-[#172033] bg-white border border-slate-200 rounded-[8px] resize-y focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400 leading-relaxed"
-                />
               </div>
             </div>
 
@@ -942,7 +953,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                           ? `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 읽고 11대 비용 항목 존재 여부(O/X)와 추정치를 확인하고 있습니다...`
                           : uploadedDocs.length > 0
                           ? `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 추출하고 AIDC 운영 데이터 및 "${selectedTimeframeLabel} / ${selectedFocusLabel}" 분석 조건을 확인합니다.`
-                          : 'PDF 문서를 업로드하거나 위 표준 샘플 문서를 선택하면 문서를 읽어 11대 비용 항목의 존재 여부(O/X)를 자동으로 판별합니다.'}
+                          : 'PDF 문서를 업로드하거나 위 표준 샘플 문서를 선택하면 문서를 읽어 11대 비용 항목의 존재 여부를 자동으로 판별합니다.'}
                       </p>
                     </div>
                   </div>
