@@ -103,7 +103,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     },
     {
       step: 3,
-      title: 'STEP 3. 비용 최적화 방안 및 추천 결과 생성',
+      title: 'STEP 3. 비용 최적화 추천 방안 및 예측 대시보드 생성',
       subtitle: 'Cost Optimization & Recommendation Synthesis',
       description:
         '분석된 비용 구조를 바탕으로 정량적 절감 포인트와 맞춤형 비용 최적화 추천 결과를 생성합니다.',
