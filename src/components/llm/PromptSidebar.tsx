@@ -316,7 +316,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-[#172033] truncate">
-              AI FinOps 메신저
+              AI 어시스턴트
             </h2>
           </div>
         </div>
@@ -346,7 +346,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
       {/* Active Title & AIDC Specs Strip */}
       <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs shrink-0 space-y-1.5">
         <div className="text-[11px] text-slate-600">
-          <span className="font-semibold text-[#172033]">분석 제목: </span>
+          <span className="font-semibold text-[#172033]">분석 제목:</span>{' '}
           {displayAnalysisTitle ? (
             <span className="font-medium text-slate-800">{displayAnalysisTitle}</span>
           ) : (
