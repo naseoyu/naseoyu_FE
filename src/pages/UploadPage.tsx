@@ -464,7 +464,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   const selectedFocusLabel =
     FOCUS_OPTIONS.find((f) => f.value === focusArea)?.label || '11대 항목 전체';
   const userChatPrompts = chatMessages
-    .filter((m) => m.role === 'user')
+    .filter((m) => m.role === 'user' && !m.id.startsWith('req-sync-'))
     .map((m) => m.content.trim())
     .filter(Boolean);
 

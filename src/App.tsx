@@ -242,11 +242,66 @@ export default function App() {
     setUploadedDocs([]);
   };
 
+  const syncAnalysisRequestToChat = useCallback(
+    (requestText: string, runKey: number) => {
+      const trimmed = requestText.trim();
+      const syncId = `req-sync-${runKey}`;
+
+      setChatMessages((prev) => {
+        const existingIdx = prev.findIndex((m) => m.id === syncId);
+
+        if (!trimmed) {
+          if (existingIdx === -1) return prev;
+          return prev.filter((m) => m.id !== syncId);
+        }
+
+        if (existingIdx >= 0) {
+          if (prev[existingIdx].content === trimmed) return prev;
+          const next = [...prev];
+          next[existingIdx] = {
+            ...next[existingIdx],
+            content: trimmed,
+            timestamp: new Date(),
+          };
+          return next;
+        }
+
+        const lastUserMsg = [...prev].reverse().find((m) => m.role === 'user');
+        if (lastUserMsg && lastUserMsg.content.trim() === trimmed) {
+          return prev;
+        }
+
+        return [
+          ...prev,
+          {
+            id: syncId,
+            role: 'user',
+            content: trimmed,
+            timestamp: new Date(),
+          },
+        ];
+      });
+    },
+    []
+  );
+
+  const handleChangeAnalysisRequest = useCallback(
+    (value: string) => {
+      setAnalysisRequest(value);
+      syncAnalysisRequestToChat(value, analysisRunKey);
+    },
+    [analysisRunKey, syncAnalysisRequestToChat]
+  );
+
   const handleStartAnalysis = () => {
     if (uploadedDocs.length === 0) return;
+    const nextRunKey = Math.max(analysisRunKey + 1, Date.now());
     setIsAdditionalRun(false);
     setAddedDocCount(0);
-    setAnalysisRunKey((k) => Math.max(k + 1, Date.now()));
+    setAnalysisRunKey(nextRunKey);
+    if (analysisRequest.trim()) {
+      syncAnalysisRequestToChat(analysisRequest, nextRunKey);
+    }
     setCurrentPage('analysis_loading');
     scrollToTop();
   };
@@ -312,13 +367,15 @@ export default function App() {
       analysisRequest.trim() ||
       '추가 업로드한 서류를 기존 분석 내역과 통합하여 비용 변화 및 최적화 방안을 분석해줘';
 
+    const nextRunKey = Math.max(analysisRunKey + 1, Date.now());
     setUploadedDocs(mergedDocs);
     setAnalysisTitle(nextTitle);
     setRequestMemo(nextMemo);
     setAnalysisRequest(nextRequest);
     setIsAdditionalRun(true);
     setAddedDocCount(payload.newDocs.length);
-    setAnalysisRunKey((k) => Math.max(k + 1, Date.now()));
+    setAnalysisRunKey(nextRunKey);
+    syncAnalysisRequestToChat(nextRequest, nextRunKey);
     setCurrentPage('analysis_loading');
     scrollToTop();
   };
@@ -440,6 +497,9 @@ export default function App() {
     setActiveHistoryId(entry.id);
     setIsAdditionalRun(Boolean(entry.isAdditional));
     setAddedDocCount(entry.addedDocCount ?? 0);
+    if (entry.analysisRequest.trim()) {
+      syncAnalysisRequestToChat(entry.analysisRequest, entry.runKey);
+    }
     scrollToTop();
   };
 
@@ -593,7 +653,7 @@ export default function App() {
                     onUpdateDocTitle={handleUpdateDocTitle}
                     onClearDocs={handleClearDocs}
                     onChangeAnalysisTitle={setAnalysisTitle}
-                    onChangeAnalysisRequest={setAnalysisRequest}
+                    onChangeAnalysisRequest={handleChangeAnalysisRequest}
                     onChangeRequestMemo={setRequestMemo}
                     onChangeTimeframe={setTimeframe}
                     onChangeFocusArea={setFocusArea}

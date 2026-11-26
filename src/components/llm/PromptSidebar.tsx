@@ -46,7 +46,11 @@ const QUICK_PROMPTS = [
 
 const DEFAULT_SIDEBAR_WIDTH = 360;
 const MIN_SIDEBAR_WIDTH = 280;
-const MAX_SIDEBAR_WIDTH = 680;
+
+const getMaxSidebarWidth = () => {
+  if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH;
+  return Math.max(MIN_SIDEBAR_WIDTH, Math.floor(window.innerWidth / 3));
+};
 
 export const PromptSidebar: React.FC<PromptSidebarProps> = ({
   currentPage,
@@ -66,10 +70,24 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [appliedMessageId, setAppliedMessageId] = useState<string | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState<number>(DEFAULT_SIDEBAR_WIDTH);
+  const [maxSidebarWidth, setMaxSidebarWidth] = useState<number>(getMaxSidebarWidth);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() =>
+    Math.min(DEFAULT_SIDEBAR_WIDTH, getMaxSidebarWidth())
+  );
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    const updateMaxWidth = () => {
+      const nextMax = getMaxSidebarWidth();
+      setMaxSidebarWidth(nextMax);
+      setSidebarWidth((prev) => Math.min(prev, nextMax));
+    };
+    updateMaxWidth();
+    window.addEventListener('resize', updateMaxWidth);
+    return () => window.removeEventListener('resize', updateMaxWidth);
+  }, []);
 
   useEffect(() => {
     if (!isResizing) return;
@@ -77,10 +95,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
     const handlePointerMove = (e: PointerEvent) => {
       if (!dragStateRef.current) return;
       const delta = e.clientX - dragStateRef.current.startX;
-      const dynamicMax = Math.min(
-        MAX_SIDEBAR_WIDTH,
-        Math.max(MIN_SIDEBAR_WIDTH, Math.floor(window.innerWidth * 0.55))
-      );
+      const dynamicMax = getMaxSidebarWidth();
       const nextWidth = Math.min(
         dynamicMax,
         Math.max(MIN_SIDEBAR_WIDTH, dragStateRef.current.startWidth + delta)
@@ -120,10 +135,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
   };
 
   const handleResizeKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const dynamicMax = Math.min(
-      MAX_SIDEBAR_WIDTH,
-      Math.max(MIN_SIDEBAR_WIDTH, Math.floor(window.innerWidth * 0.55))
-    );
+    const dynamicMax = getMaxSidebarWidth();
     if (e.key === 'ArrowRight') {
       e.preventDefault();
       setSidebarWidth((w) => Math.min(dynamicMax, w + 20));
@@ -294,11 +306,6 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
             <h2 className="text-sm font-bold text-[#172033] truncate">
               AI FinOps 메신저
             </h2>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5 tabular-nums">
-              <span>서류 {uploadedDocs.length}건</span>
-              <span aria-hidden="true">·</span>
-              <span className="truncate">{pageLabel} 단계</span>
-            </div>
           </div>
         </div>
 
@@ -717,7 +724,7 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
     <>
       {/* Desktop Persistent Left Sidebar (Horizontally Resizable, Fixed Viewport Height) */}
       <aside
-        style={{ width: `${sidebarWidth}px` }}
+        style={{ width: `${sidebarWidth}px`, maxWidth: 'calc(100vw / 3)' }}
         className="hidden lg:flex relative shrink-0 border-r border-slate-200 bg-white h-full z-20 flex-col overflow-hidden"
       >
         {sidebarContent}
@@ -728,11 +735,13 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
           aria-orientation="vertical"
           aria-label="LLM 프롬프트 창 가로 크기 조절"
           aria-valuemin={MIN_SIDEBAR_WIDTH}
-          aria-valuemax={MAX_SIDEBAR_WIDTH}
+          aria-valuemax={maxSidebarWidth}
           aria-valuenow={sidebarWidth}
           tabIndex={0}
           onPointerDown={handleStartResize}
-          onDoubleClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+          onDoubleClick={() =>
+            setSidebarWidth(Math.min(DEFAULT_SIDEBAR_WIDTH, getMaxSidebarWidth()))
+          }
           onKeyDown={handleResizeKeyDown}
           title="드래그하여 프롬프트 창 가로 크기 조절 (더블클릭 시 기본 크기 복원)"
           className={`group absolute top-0 right-0 bottom-0 w-2 cursor-col-resize z-30 flex items-center justify-center transition-colors focus:outline-none ${
