@@ -19,7 +19,6 @@ import {
   AnalysisHistoryEntry,
   AdditionalAnalysisPayload,
 } from '../types';
-import { CostCategoryTaxonomy } from '../components/cost/CostCategoryTaxonomy';
 import { AdditionalAnalysisPanel } from '../components/cost/AdditionalAnalysisPanel';
 import { AnalysisHistoryPanel } from '../components/cost/AnalysisHistoryPanel';
 
@@ -421,22 +420,6 @@ export const DashboardPreviewPage: React.FC<DashboardPreviewPageProps> = ({
           </div>
         </div>
 
-        {/* 11 Core Cost Items & Conditional Framework */}
-        <div className="mb-10">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-[#172033]">
-              11대 주요 비용 항목 및 조건부 비용 반영 현황
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              업로드된 {uploadedDocs.length}개 문서와 요청 사항을 기준으로 주요 비용 항목을 점검한 내역입니다.
-            </p>
-          </div>
-
-          <CostCategoryTaxonomy
-            highlightedItemNumbers={analysisResult?.highlightedItemNumbers || []}
-            itemInsights={analysisResult?.itemInsights || []}
-          />
-        </div>
       </div>
     </div>
   );

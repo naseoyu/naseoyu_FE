@@ -16,6 +16,7 @@ import {
   AnalysisFocusArea,
   CustomAnalysisResult,
   AidcProjectSpecs,
+  CostItemInspection,
 } from '../types';
 
 interface AnalysisLoadingPageProps {
@@ -28,6 +29,7 @@ interface AnalysisLoadingPageProps {
   timeframe: AnalysisTimeframe;
   focusArea: AnalysisFocusArea;
   aidcSpecs: AidcProjectSpecs;
+  costItemInspections?: CostItemInspection[];
   analysisRunKey: number;
   onAnalysisComplete: (result: CustomAnalysisResult | null) => void;
   onProceedToDashboard: () => void;
@@ -59,12 +61,13 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   timeframe,
   focusArea,
   aidcSpecs,
+  costItemInspections = [],
   analysisRunKey,
   onAnalysisComplete,
   onProceedToDashboard,
   onBackToUpload,
 }) => {
-  const [currentStep, setCurrentStep] = useState<AnalysisStepId>(1);
+  const [currentStep, setCurrentStep] = useState<AnalysisStepId>(2);
   const [progressPercent, setProgressPercent] = useState<number>(12);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
@@ -76,18 +79,6 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
     : `${TIMEFRAME_LABELS[timeframe]} · ${FOCUS_LABELS[focusArea]} 표준 분석`;
 
   const steps: AnalysisStepInfo[] = [
-    {
-      step: 1,
-      title: 'STEP 1. 문서 읽기 및 AIDC 운영 데이터 확인',
-      subtitle: 'Document Ingestion & AIDC Data Check',
-      description: `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 추출하고 AIDC 운영 데이터 및 "${TIMEFRAME_LABELS[timeframe]} / ${FOCUS_LABELS[focusArea]}" 분석 조건을 확인합니다.`,
-      status:
-        currentStep > 1 || isCompleted
-          ? 'completed'
-          : currentStep === 1
-          ? 'in_progress'
-          : 'pending',
-    },
     {
       step: 2,
       title: 'STEP 2. 비용 항목 분석 및 운영비 예측',
@@ -132,12 +123,10 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
       setProgressPercent((prev) => {
         if (prev >= 90) return 90;
         const next = Math.min(90, prev + 4);
-        if (next >= 65) {
+        if (next >= 55) {
           setCurrentStep(3);
-        } else if (next >= 35) {
-          setCurrentStep(2);
         } else {
-          setCurrentStep(1);
+          setCurrentStep(2);
         }
         return next;
       });
@@ -149,7 +138,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
   const runAnalysis = useCallback(async () => {
     setApiError(null);
     setIsCompleted(false);
-    setCurrentStep(1);
+    setCurrentStep(2);
     setProgressPercent(12);
     setElapsedSeconds(0);
 
@@ -174,6 +163,14 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
           timeframe: TIMEFRAME_LABELS[timeframe],
           focusArea: FOCUS_LABELS[focusArea],
           aidcSpecs,
+          costItemSelections: costItemInspections.map((item) => ({
+            itemNumber: item.itemNumber,
+            name: item.name,
+            existsInDocument: item.existsInDocument,
+            detectedValue: item.detectedValue,
+            estimatedValue: item.estimatedValue,
+            includeEstimate: item.includeEstimate,
+          })),
         }),
       });
 
@@ -196,7 +193,7 @@ export const AnalysisLoadingPage: React.FC<AnalysisLoadingPageProps> = ({
           : '분석 서버와 연결할 수 없습니다.'
       );
     }
-  }, [uploadedDocs, analysisTitle, isAdditionalRun, analysisRequest, requestMemo, timeframe, focusArea, aidcSpecs, onAnalysisComplete]);
+  }, [uploadedDocs, analysisTitle, isAdditionalRun, analysisRequest, requestMemo, timeframe, focusArea, aidcSpecs, costItemInspections, onAnalysisComplete]);
 
   useEffect(() => {
     void runAnalysis();

@@ -86,6 +86,12 @@ const CORE_TAXONOMY_CONTEXT = `
 
 [조건부 입력 비용 원칙]
 - 상수도 식수(수도세 인상률 연동), 정규직 인건비, 소모품비(미입력 시 임의 0원 추정 금지), 보험료, 세금과공과, 인증·검사 지급수수료(산정 제외 상태 구분)
+
+[기본 경제·물가 반영 기준]
+- 달러 환율: 1300 USD (1,300원/USD 기준 환산)
+- 전기세 인상률: 연 3%
+- 수도세 인상률: 연 3%
+- 물가인상률: 연 3%
 `;
 
 async function startServer() {
@@ -97,6 +103,153 @@ async function startServer() {
       ok: true,
       hasApiKey: Boolean(process.env.GEMINI_API_KEY?.trim()),
     });
+  });
+
+  app.post('/api/inspect-documents', async (req: Request, res: Response) => {
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.status(503).json({
+        code: 'MISSING_API_KEY',
+        error: 'GEMINI_API_KEY가 설정되지 않았습니다. Settings > Secrets 패널에서 API 키를 확인해 주세요.',
+      });
+    }
+
+    try {
+      const { documents = [], aidcSpecs } = req.body as {
+        documents: IncomingDocPayload[];
+        aidcSpecs?: {
+          commencementDate?: string;
+          usageDuration?: string;
+          gpuSystemType?: string;
+          gpuConfig?: string;
+          gpuCoolingType?: string;
+          storageCapacity?: string;
+          storagePerGpuRequirement?: string;
+          diaBandwidth?: string;
+        };
+      };
+
+      if (!Array.isArray(documents) || documents.length === 0) {
+        return res.status(400).json({
+          code: 'NO_DOCUMENTS',
+          error: '읽을 문서가 없습니다. PDF를 업로드하거나 샘플 문서를 선택해 주세요.',
+        });
+      }
+
+      const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+      const docDescriptions = documents.map((doc, idx) => {
+        if (doc.base64Data) {
+          parts.push({
+            inlineData: {
+              mimeType: 'application/pdf',
+              data: doc.base64Data,
+            },
+          });
+        }
+        return `- 문서 ${idx + 1}: ${doc.name} (유형: ${doc.sourceType === 'preset_sample' ? '표준 샘플 규격' : '사용자 업로드 PDF'}, 약 ${doc.pageCount}페이지, 용량 ${(doc.sizeBytes / (1024 * 1024)).toFixed(2)}MB)\n  요약/메타정보: ${doc.documentSummary || '업로드된 PDF 원본 참조'}`;
+      });
+
+      const specsBlock = aidcSpecs
+        ? `
+[사용자 입력 AIDC 인프라 및 운영 조건]
+- 가동 시점: ${aidcSpecs.commencementDate || '미입력'}
+- 사용 기간: ${aidcSpecs.usageDuration || '미입력'}
+- GPU System: ${aidcSpecs.gpuSystemType || '미입력'}${aidcSpecs.gpuConfig || aidcSpecs.gpuCoolingType ? ` (${[aidcSpecs.gpuConfig, aidcSpecs.gpuCoolingType].filter(Boolean).join(', ')})` : ''}
+- Storage: ${aidcSpecs.storageCapacity || '미입력'}
+- DIA Bandwidth: ${aidcSpecs.diaBandwidth || '미입력'}
+`
+        : '';
+
+      const promptText = `
+다음은 사용자가 업로드한 AI 데이터센터 비용/운영 관련 문서 목록입니다.
+[업로드된 문서 목록 (${documents.length}건)]
+${docDescriptions.join('\n')}
+${specsBlock}
+${CORE_TAXONOMY_CONTEXT}
+
+[지시사항]
+1. 위 업로드된 문서(첨부 PDF 원문 및 문서 설명)를 정밀하게 읽고, 1번부터 11번까지 11대 표준 비용 항목이 각각 문서에 실제로 존재하는지(금액, 단가, 내역 또는 명시적 항목 포함 여부)를 판별하세요.
+   - 1. 전력료
+   - 2. 인터넷 전용 회선 서비스
+   - 3. 발전기 연료비
+   - 4. 공업용수 및 냉각 비용
+   - 5. GPU 시스템 감가상각비
+   - 6. 데이터센터 구축 감가상각비
+   - 7. Fit-out 공사 감가상각비
+   - 8. 액체냉각 구축 감가상각비
+   - 9. 시설 운영 외주용역비
+   - 10. NW 운영 외주용역비
+   - 11. 수선유지비
+2. 문서에 존재하는 항목은 existsInDocument: true 로 표시하고, detectedValue에 문서에서 확인된 금액/단가/요약 내용을 적고 estimatedValue는 "-" 로 반환하세요.
+3. 문서에 존재하지 않거나 근거 수치가 누락된 항목은 existsInDocument: false 로 표시하고, detectedValue는 "미기재"로 적고, estimatedValue에는 해당 데이터센터 규모·GPU 사양·문서 맥락을 고려한 합리적인 엔터프라이즈 시장 기준 추정 비용(예: "월 약 1,200만 원" 또는 "연 약 $180,000")을 제시하세요.
+4. 반드시 1번부터 11번까지 11개 항목 모두를 누락 없이 반환하세요.
+`;
+
+      parts.push({ text: promptText });
+
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: { parts },
+        config: {
+          systemInstruction:
+            '당신은 AI 데이터센터 비용 감사 전문가입니다. 사용자가 업로드한 문서에서 11대 표준 비용 항목 각각의 존재 여부(O/X)를 정확히 판별하고, 누락된 항목에 대해서는 참고용 추정치를 제시하는 JSON을 반환하세요.',
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              items: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    itemNumber: { type: Type.INTEGER },
+                    itemName: { type: Type.STRING },
+                    existsInDocument: { type: Type.BOOLEAN },
+                    detectedValue: { type: Type.STRING },
+                    estimatedValue: { type: Type.STRING },
+                    estimateBasis: { type: Type.STRING },
+                  },
+                  required: [
+                    'itemNumber',
+                    'itemName',
+                    'existsInDocument',
+                    'detectedValue',
+                    'estimatedValue',
+                    'estimateBasis',
+                  ],
+                },
+              },
+            },
+            required: ['items'],
+          },
+        },
+      });
+
+      const rawText = (response.text ?? '{"items":[]}').trim();
+      const parsed = JSON.parse(rawText) as {
+        items?: Array<{
+          itemNumber: number;
+          itemName: string;
+          existsInDocument: boolean;
+          detectedValue: string;
+          estimatedValue: string;
+          estimateBasis: string;
+        }>;
+      };
+
+      return res.json({
+        items: Array.isArray(parsed.items) ? parsed.items : [],
+        inspectedAt: new Date().toISOString(),
+        modelUsed: MODEL_NAME,
+      });
+    } catch (err) {
+      console.error('[/api/inspect-documents] Gemini error:', err);
+      const mapped = mapGeminiError(err);
+      return res.status(mapped.status).json({
+        code: mapped.code,
+        error: mapped.message,
+      });
+    }
   });
 
   app.post('/api/analyze', async (req: Request, res: Response) => {
@@ -118,6 +271,7 @@ async function startServer() {
         timeframe = 'all',
         focusArea = 'all',
         aidcSpecs,
+        costItemSelections = [],
       } = req.body as {
         documents: IncomingDocPayload[];
         analysisTitle?: string;
@@ -136,6 +290,14 @@ async function startServer() {
           storagePerGpuRequirement?: string;
           diaBandwidth?: string;
         };
+        costItemSelections?: Array<{
+          itemNumber: number;
+          name: string;
+          existsInDocument: boolean;
+          detectedValue: string;
+          estimatedValue: string;
+          includeEstimate: boolean;
+        }>;
       };
 
       if (!Array.isArray(documents) || documents.length === 0) {
@@ -170,12 +332,27 @@ async function startServer() {
 `
         : '';
 
+      const inspectionBlock =
+        Array.isArray(costItemSelections) && costItemSelections.length > 0
+          ? `
+[STEP 1 문서 내 11대 비용 항목 존재 여부 및 사용자 추정치 반영 결정]
+${costItemSelections
+  .map((item) => {
+    if (item.existsInDocument) {
+      return `- ${item.itemNumber}. ${item.name}: [문서 존재: O] 확인 내역(${item.detectedValue})`;
+    }
+    return `- ${item.itemNumber}. ${item.name}: [문서 존재: X] 추정치(${item.estimatedValue}) · 사용자 반영 선택: ${item.includeEstimate ? '체크됨(추정치 포함하여 분석)' : '미체크(추정치 미반영 · 산정 제외)'}`;
+  })
+  .join('\n')}
+`
+          : '';
+
       const promptText = `
 다음은 사용자가 업로드한 데이터센터 비용·운영 관련 문서 목록과 맞춤 분석 요청 사항입니다.
 
 [업로드된 문서 목록 (${documents.length}건)]
 ${docDescriptions.join('\n')}
-${specsBlock}
+${specsBlock}${inspectionBlock}
 [사용자 맞춤 분석 요청 사항]
 - 분석 회차 제목: "${analysisTitle.trim() || '미지정'}"${isAdditional ? ' (이전 결과에 서류를 추가 업로드한 추가 분석 회차)' : ''}
 - 직접 입력 요청: "${analysisRequest.trim() || '업로드된 문서를 바탕으로 11대 표준 비용 항목 전반과 최적화 방안을 분석해줘'}"
@@ -190,8 +367,11 @@ ${CORE_TAXONOMY_CONTEXT}
    - 예: 사용자가 "3년치만 분석해줘"라고 했다면 3년(36개월) 기간 관점에서 비용 추이, 감가상각/OPEX 영향, 3년 누적 시사점을 중심으로 작성하세요.
    - 예: 사용자가 "전력료 중점으로 분석해줘"라고 했다면 1번 전력료 및 4번 냉각 비용 중심으로 세부 분석과 절감 방안을 집중 배치하세요.
    - 문서가 여러 개인 경우 각 문서의 역할과 교차 분석 결과를 documentInsights에 명확히 정리하세요.
-2. 데이터 무결성 원칙: 문서에 명시되지 않은 조건부 비용을 임의로 0원 처리하지 말고 미입력/검토 필요 항목은 명확히 구분하세요.
-3. 모든 텍스트는 전문적인 한국어 엔터프라이즈 B2B FinOps 어조로 작성하세요.
+2. STEP 1의 11대 항목별 O/X 및 추정치 반영 체크 결과를 엄격히 준수하세요:
+   - 문서에 존재하지 않고(X) 사용자가 추정치 반영을 체크한 항목은 제시된 추정치를 반영하여 산출하되 "추정치 반영"임을 명시하세요.
+   - 문서에 존재하지 않고(X) 추정치 반영이 미체크된 항목은 임의로 0원 추정하지 말고 "미입력/산정 제외"로 구분하세요.
+3. 데이터 무결성 원칙: 문서에 명시되지 않은 조건부 비용을 임의로 0원 처리하지 말고 미입력/검토 필요 항목은 명확히 구분하세요.
+4. 모든 텍스트는 전문적인 한국어 엔터프라이즈 B2B FinOps 어조로 작성하세요.
 `;
 
       parts.push({ text: promptText });

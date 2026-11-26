@@ -89,6 +89,18 @@ export interface AidcProjectSpecs {
   diaBandwidth: string;     // 5. 사용하고자 하는 인터넷전용회선(DIA) Bandwidth 를 입력하시오.
 }
 
+// STEP 1 Document Inspection Result per 11 Core Cost Items
+export interface CostItemInspection {
+  itemNumber: number;
+  name: string;
+  category: CoreCostItem['category'];
+  existsInDocument: boolean;
+  detectedValue: string;
+  estimatedValue: string;
+  estimateBasis: string;
+  includeEstimate: boolean;
+}
+
 // Custom LLM Analysis Result returned by /api/analyze
 export interface CustomAnalysisResult {
   appliedScopeLabel: string;

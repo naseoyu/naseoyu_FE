@@ -13,9 +13,8 @@ import {
   MessageSquareText,
   Server,
   Pencil,
-  NotebookPen,
-  Sparkles,
-  Eraser,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import {
   UploadedDataCenterDoc,
@@ -24,6 +23,7 @@ import {
   AnalysisFocusArea,
   AidcProjectSpecs,
   PromptChatMessage,
+  CostItemInspection,
 } from '../types';
 import { SAMPLE_DATA_CENTER_PRESETS } from '../data/costTaxonomyData';
 
@@ -36,6 +36,12 @@ interface UploadPageProps {
   focusArea: AnalysisFocusArea;
   aidcSpecs: AidcProjectSpecs;
   chatMessages: PromptChatMessage[];
+  costItemInspections: CostItemInspection[];
+  isInspectingDocs: boolean;
+  inspectionError: string | null;
+  onToggleCostItemEstimate: (itemNumber: number) => void;
+  onToggleAllMissingEstimates: (include: boolean) => void;
+  onReinspectDocs: () => void;
   onAddDocs: (docs: UploadedDataCenterDoc[]) => void;
   onRemoveDoc: (docId: string) => void;
   onUpdateDocTitle: (docId: string, newTitle: string, isCustomTitle?: boolean) => void;
@@ -175,30 +181,44 @@ const DIA_BANDWIDTH_PRESETS = ['10 Gbps', '100 Gbps', '400 Gbps'];
 
 export const UploadPage: React.FC<UploadPageProps> = ({
   uploadedDocs,
-  analysisTitle,
+  analysisTitle: _analysisTitle,
   analysisRequest,
   requestMemo,
   timeframe,
   focusArea,
   aidcSpecs,
-  chatMessages,
+  chatMessages: _chatMessages,
+  costItemInspections,
+  isInspectingDocs,
+  inspectionError,
+  onToggleCostItemEstimate,
+  onToggleAllMissingEstimates,
+  onReinspectDocs,
   onAddDocs,
   onRemoveDoc,
   onUpdateDocTitle,
   onClearDocs,
-  onChangeAnalysisTitle,
+  onChangeAnalysisTitle: _onChangeAnalysisTitle,
   onChangeAnalysisRequest,
   onChangeRequestMemo,
-  onChangeTimeframe,
-  onChangeFocusArea,
+  onChangeTimeframe: _onChangeTimeframe,
+  onChangeFocusArea: _onChangeFocusArea,
   onChangeAidcSpecs,
   onStartAnalysis,
   onBackToLanding,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isReadingLocalFiles, setIsReadingLocalFiles] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingDocTitle, setPendingDocTitle] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isStep1Loading = isReadingLocalFiles || isInspectingDocs;
+  const isStep1Completed =
+    !isStep1Loading &&
+    !inspectionError &&
+    uploadedDocs.length > 0 &&
+    costItemInspections.length > 0;
 
   const generateAutoDocTitle = (fileName: string, indexOffset = 0): string => {
     const seq = String(uploadedDocs.length + indexOffset + 1).padStart(2, '0');
@@ -327,65 +347,70 @@ export const UploadPage: React.FC<UploadPageProps> = ({
     const files = Array.from(fileList);
     if (files.length === 0) return;
 
-    const validDocs: UploadedDataCenterDoc[] = [];
-    const errors: string[] = [];
+    setIsReadingLocalFiles(true);
+    try {
+      const validDocs: UploadedDataCenterDoc[] = [];
+      const errors: string[] = [];
 
-    const customTitleInput = pendingDocTitle.trim();
-    const pdfCount = files.filter(
-      (f) => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf'
-    ).length;
+      const customTitleInput = pendingDocTitle.trim();
+      const pdfCount = files.filter(
+        (f) => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf'
+      ).length;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const isPdf =
-        file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
-      if (!isPdf) {
-        errors.push(`${file.name}: PDF 형식(.pdf)만 업로드할 수 있습니다.`);
-        continue;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const isPdf =
+          file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+        if (!isPdf) {
+          errors.push(`${file.name}: PDF 형식(.pdf)만 업로드할 수 있습니다.`);
+          continue;
+        }
+
+        if (file.size > 50 * 1024 * 1024) {
+          errors.push(`${file.name}: 파일 용량은 최대 50MB까지 가능합니다.`);
+          continue;
+        }
+
+        const matchedPreset = SAMPLE_DATA_CENTER_PRESETS.find(
+          (p) => p.name.toLowerCase() === file.name.toLowerCase()
+        );
+        const base64Data = await readFileAsBase64(file);
+        const resolvedTitle = customTitleInput
+          ? pdfCount > 1
+            ? `${customTitleInput} (${validDocs.length + 1})`
+            : customTitleInput
+          : generateAutoDocTitle(file.name, validDocs.length);
+
+        validDocs.push({
+          id: `doc-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+          name: resolvedTitle,
+          originalFileName: file.name,
+          isCustomTitle: Boolean(customTitleInput),
+          sizeBytes: file.size,
+          uploadedAt: new Date(),
+          pageCount: matchedPreset
+            ? matchedPreset.pageCount
+            : Math.max(8, Math.round(file.size / (180 * 1024))),
+          sourceType: matchedPreset ? 'preset_sample' : 'local_upload',
+          documentSummary:
+            matchedPreset?.summary ||
+            '사용자 로컬 등록 데이터센터 운영 및 비용 관련 PDF 문서',
+          base64Data,
+        });
       }
 
-      if (file.size > 50 * 1024 * 1024) {
-        errors.push(`${file.name}: 파일 용량은 최대 50MB까지 가능합니다.`);
-        continue;
+      if (errors.length > 0) {
+        setErrorMessage(errors.join(' '));
       }
 
-      const matchedPreset = SAMPLE_DATA_CENTER_PRESETS.find(
-        (p) => p.name.toLowerCase() === file.name.toLowerCase()
-      );
-      const base64Data = await readFileAsBase64(file);
-      const resolvedTitle = customTitleInput
-        ? pdfCount > 1
-          ? `${customTitleInput} (${validDocs.length + 1})`
-          : customTitleInput
-        : generateAutoDocTitle(file.name, validDocs.length);
-
-      validDocs.push({
-        id: `doc-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-        name: resolvedTitle,
-        originalFileName: file.name,
-        isCustomTitle: Boolean(customTitleInput),
-        sizeBytes: file.size,
-        uploadedAt: new Date(),
-        pageCount: matchedPreset
-          ? matchedPreset.pageCount
-          : Math.max(8, Math.round(file.size / (180 * 1024))),
-        sourceType: matchedPreset ? 'preset_sample' : 'local_upload',
-        documentSummary:
-          matchedPreset?.summary ||
-          '사용자 로컬 등록 데이터센터 운영 및 비용 관련 PDF 문서',
-        base64Data,
-      });
-    }
-
-    if (errors.length > 0) {
-      setErrorMessage(errors.join(' '));
-    }
-
-    if (validDocs.length > 0) {
-      onAddDocs(validDocs);
-      if (customTitleInput) {
-        setPendingDocTitle('');
+      if (validDocs.length > 0) {
+        onAddDocs(validDocs);
+        if (customTitleInput) {
+          setPendingDocTitle('');
+        }
       }
+    } finally {
+      setIsReadingLocalFiles(false);
     }
   };
 
@@ -463,57 +488,6 @@ export const UploadPage: React.FC<UploadPageProps> = ({
     TIMEFRAME_OPTIONS.find((t) => t.value === timeframe)?.label || '전체 기간';
   const selectedFocusLabel =
     FOCUS_OPTIONS.find((f) => f.value === focusArea)?.label || '11대 항목 전체';
-  const userChatPrompts = chatMessages
-    .filter((m) => m.role === 'user' && !m.id.startsWith('req-sync-'))
-    .map((m) => m.content.trim())
-    .filter(Boolean);
-
-  const buildRequestSummaryLines = (): string[] => {
-    const lines: string[] = [];
-    if (analysisTitle.trim()) {
-      lines.push(`분석 제목: ${analysisTitle.trim()}`);
-    }
-    if (uploadedDocs.length > 0) {
-      lines.push(
-        `대상 문서(${uploadedDocs.length}건): ${uploadedDocs
-          .map((d) => d.name)
-          .join(', ')}`
-      );
-    }
-    lines.push(`분석 기준: ${selectedTimeframeLabel} · ${selectedFocusLabel}`);
-
-    const specParts: string[] = [];
-    if (aidcSpecs.commencementDate)
-      specParts.push(`가동 ${aidcSpecs.commencementDate}`);
-    if (aidcSpecs.usageDuration)
-      specParts.push(`기간 ${aidcSpecs.usageDuration}`);
-    if (aidcSpecs.gpuSystemType)
-      specParts.push(`GPU ${aidcSpecs.gpuSystemType}`);
-    if (aidcSpecs.storageCapacity)
-      specParts.push(`Storage ${aidcSpecs.storageCapacity}`);
-    if (aidcSpecs.diaBandwidth) specParts.push(`DIA ${aidcSpecs.diaBandwidth}`);
-    if (specParts.length > 0) {
-      lines.push(`AIDC 사양: ${specParts.join(' / ')}`);
-    }
-
-    if (analysisRequest.trim()) {
-      lines.push(`상세 요청: ${analysisRequest.trim()}`);
-    }
-
-    if (userChatPrompts.length > 0) {
-      const recentChat = userChatPrompts[userChatPrompts.length - 1];
-      lines.push(`메신저 최근 요청: ${recentChat}`);
-    }
-
-    return lines;
-  };
-
-  const summaryLines = buildRequestSummaryLines();
-
-  const handleFillMemoFromSummary = () => {
-    const formatted = summaryLines.map((line) => `• ${line}`).join('\n');
-    onChangeRequestMemo(formatted);
-  };
 
   return (
     <div className="w-full min-h-full bg-slate-50 py-10 px-6 lg:px-10">
@@ -566,10 +540,8 @@ export const UploadPage: React.FC<UploadPageProps> = ({
           onChange={handleFileInput}
         />
 
-        {/* Top Dashboard Grid: Document Upload + Title Specification (Left) & Request Summary Notepad (Right) */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start mb-8">
-          {/* File Upload & Multi-Document Management Card */}
-          <div className="xl:col-span-7 card-enterprise p-6 sm:p-7 bg-white">
+        {/* Document Upload, Preset Samples & STEP 1 Inspection Card */}
+        <div className="card-enterprise p-6 sm:p-7 bg-white mb-8">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-base font-bold text-[#172033]">
@@ -604,36 +576,70 @@ export const UploadPage: React.FC<UploadPageProps> = ({
               </div>
             </div>
 
-            {/* Document Title Pre-Input (Optional — auto-assigned if left empty) */}
-            <div className="mb-5 p-3.5 rounded-[10px] bg-slate-50 border border-slate-200">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                <label
-                  htmlFor="pending-doc-title"
-                  className="text-xs font-semibold text-[#172033]"
-                >
-                  업로드 할 문서 제목 지정
-                </label>
-                <span className="text-[11px] text-slate-500">
-                  미입력 시 자동 제목이 부여됩니다
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="pending-doc-title"
-                  type="text"
-                  value={pendingDocTitle}
-                  onChange={(e) => setPendingDocTitle(e.target.value)}
-                  className="flex-1 min-w-0 px-3 py-2 text-xs text-[#172033] bg-white border border-slate-200 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
-                />
-                {pendingDocTitle && (
-                  <button
-                    type="button"
-                    onClick={() => setPendingDocTitle('')}
-                    className="px-2.5 py-2 text-[11px] font-medium text-slate-500 hover:text-[#172033] bg-white border border-slate-200 rounded-[8px] cursor-pointer shrink-0"
+            {/* Document Title Pre-Input & Memo (Optional) */}
+            <div className="mb-5 p-3.5 rounded-[10px] bg-slate-50 border border-slate-200 space-y-3.5">
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <label
+                    htmlFor="pending-doc-title"
+                    className="text-xs font-semibold text-[#172033]"
                   >
-                    지우기
-                  </button>
-                )}
+                    업로드 할 문서 제목 지정
+                  </label>
+                  <span className="text-[11px] text-slate-500">
+                    미입력 시 자동 제목이 부여됩니다
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="pending-doc-title"
+                    type="text"
+                    value={pendingDocTitle}
+                    onChange={(e) => setPendingDocTitle(e.target.value)}
+                    className="flex-1 min-w-0 px-3 py-2 text-xs text-[#172033] bg-white border border-slate-200 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
+                  />
+                  {pendingDocTitle && (
+                    <button
+                      type="button"
+                      onClick={() => setPendingDocTitle('')}
+                      className="px-2.5 py-2 text-[11px] font-medium text-slate-500 hover:text-[#172033] bg-white border border-slate-200 rounded-[8px] cursor-pointer shrink-0"
+                    >
+                      지우기
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200/80">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <label
+                    htmlFor="upload-request-memo"
+                    className="text-xs font-semibold text-[#172033]"
+                  >
+                    메모
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                      {requestMemo.length}자
+                    </span>
+                    {requestMemo && (
+                      <button
+                        type="button"
+                        onClick={() => onChangeRequestMemo('')}
+                        className="text-[11px] font-medium text-slate-500 hover:text-red-600 cursor-pointer"
+                      >
+                        지우기
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  id="upload-request-memo"
+                  value={requestMemo}
+                  onChange={(e) => onChangeRequestMemo(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 text-xs text-[#172033] bg-white border border-slate-200 rounded-[8px] resize-y focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400 leading-relaxed"
+                />
               </div>
             </div>
 
@@ -849,123 +855,272 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                 })}
               </div>
             </div>
-          </div>
 
-          {/* Right Column: User Request Summary Notepad */}
-          <aside className="xl:col-span-5 xl:sticky xl:top-6 card-enterprise bg-white overflow-hidden">
-            {/* Notepad Header */}
-            <div className="px-5 py-4 border-b border-amber-200/80 bg-amber-50/60 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-[8px] bg-amber-100 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
-                  <NotebookPen className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-[#172033] truncate">
-                    요청사항 요약 메모장
-                  </h2>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    입력한 조건과 요청사항을 한눈에 정리·메모
-                  </p>
+            {/* STEP 1 of LLM Analysis Process */}
+            <div className="mt-6 pt-5 border-t border-slate-200 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[#172033]">
+                  단계별 LLM 분석 프로세스
+                </span>
+                <div className="flex items-center gap-2">
+                  {uploadedDocs.length > 0 && !isStep1Loading && (
+                    <button
+                      type="button"
+                      onClick={onReinspectDocs}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-[6px] transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>문서 다시 읽기</span>
+                    </button>
+                  )}
+                  <span className="text-[11px] text-slate-400">
+                    STEP 2·3은 분석 실행 단계에서 이어집니다
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleFillMemoFromSummary}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-[#2563EB] bg-white border border-blue-200 rounded-[7px] hover:bg-blue-50 transition-colors cursor-pointer whitespace-nowrap"
-                  title="현재 입력된 분석 조건과 요청사항을 아래 메모장에 채웁니다"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>요약 채우기</span>
-                </button>
-                {requestMemo && (
+              <div
+                className={`p-4 sm:p-5 rounded-[12px] border transition-colors ${
+                  isStep1Loading
+                    ? 'bg-white border-[#2563EB] ring-1 ring-blue-200'
+                    : inspectionError
+                    ? 'bg-white border-red-300'
+                    : isStep1Completed
+                    ? 'bg-white border-emerald-300'
+                    : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div className="mt-0.5 shrink-0">
+                      {isStep1Loading ? (
+                        <div className="w-6 h-6 rounded-full bg-blue-100 text-[#2563EB] flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                      ) : inspectionError ? (
+                        <div className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                          <AlertCircle className="w-4 h-4" />
+                        </div>
+                      ) : isStep1Completed ? (
+                        <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                          <CheckCircle2 className="w-4 h-4" />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold font-mono">
+                          1
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-sm font-bold text-[#172033]">
+                          STEP 1. 문서 읽기 및 AIDC 운영 데이터 확인
+                        </h3>
+                        <span
+                          className={`text-[11px] font-medium ${
+                            isStep1Loading
+                              ? 'text-[#2563EB]'
+                              : inspectionError
+                              ? 'text-red-600'
+                              : isStep1Completed
+                              ? 'text-emerald-700'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {isStep1Loading
+                            ? '· 문서 읽는 중...'
+                            : inspectionError
+                            ? '· 확인 오류'
+                            : isStep1Completed
+                            ? '· 문서 확인 완료'
+                            : '· 문서 업로드 대기'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {isStep1Loading
+                          ? `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 읽고 11대 비용 항목 존재 여부(O/X)와 추정치를 확인하고 있습니다...`
+                          : uploadedDocs.length > 0
+                          ? `업로드된 ${uploadedDocs.length}개 PDF 문서의 텍스트·표 데이터를 추출하고 AIDC 운영 데이터 및 "${selectedTimeframeLabel} / ${selectedFocusLabel}" 분석 조건을 확인합니다.`
+                          : 'PDF 문서를 업로드하거나 위 표준 샘플 문서를 선택하면 문서를 읽어 11대 비용 항목의 존재 여부(O/X)를 자동으로 판별합니다.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Error banner if document inspection failed */}
+              {!isStep1Loading && inspectionError && (
+                <div className="p-4 rounded-[12px] bg-red-50 border border-red-200 text-xs text-red-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">{inspectionError}</span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => onChangeRequestMemo('')}
-                    className="p-1.5 text-slate-500 hover:text-red-600 bg-white border border-slate-200 rounded-[7px] transition-colors cursor-pointer"
-                    title="메모 지우기"
+                    onClick={onReinspectDocs}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-[8px] transition-colors cursor-pointer shrink-0 self-start sm:self-center"
                   >
-                    <Eraser className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>다시 읽기</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* 11 Core Cost Items Inspection Table (Shown once STEP 1 finishes reading docs) */}
+              {isStep1Completed && (
+                <div className="rounded-[12px] border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs">
+                      <span className="font-bold text-[#172033]">
+                        11대 비용 항목 문서 내 존재 여부 및 추정치 반영 설정
+                      </span>
+                      <span className="ml-2 text-[11px] text-slate-500 tabular-nums">
+                        존재(O){' '}
+                        <strong className="text-emerald-700">
+                          {costItemInspections.filter((i) => i.existsInDocument).length}건
+                        </strong>{' '}
+                        · 미존재(X){' '}
+                        <strong className="text-rose-700">
+                          {costItemInspections.filter((i) => !i.existsInDocument).length}건
+                        </strong>{' '}
+                        · 추정치 반영{' '}
+                        <strong className="text-[#2563EB]">
+                          {
+                            costItemInspections.filter(
+                              (i) => !i.existsInDocument && i.includeEstimate
+                            ).length
+                          }
+                          건
+                        </strong>
+                      </span>
+                    </div>
+
+                    {costItemInspections.some((i) => !i.existsInDocument) && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onToggleAllMissingEstimates(true)}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] bg-white border border-blue-200 rounded-[6px] hover:bg-blue-50 transition-colors cursor-pointer"
+                        >
+                          미존재 추정치 전체 선택
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onToggleAllMissingEstimates(false)}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-[6px] hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          전체 해제
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-500">
+                          <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">
+                            11대 비용 항목
+                          </th>
+                          <th className="py-2.5 px-3 font-semibold text-center whitespace-nowrap w-20">
+                            O / X
+                          </th>
+                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">
+                            추정치 (미존재 시)
+                          </th>
+                          <th className="py-2.5 px-3.5 font-semibold text-center whitespace-nowrap w-28">
+                            추정치 반영
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {costItemInspections.map((item) => (
+                          <tr
+                            key={item.itemNumber}
+                            className={`transition-colors ${
+                              item.existsInDocument
+                                ? 'hover:bg-slate-50/70'
+                                : item.includeEstimate
+                                ? 'bg-blue-50/30 hover:bg-blue-50/50'
+                                : 'bg-rose-50/20 hover:bg-slate-50/70'
+                            }`}
+                          >
+                            <td className="py-2.5 px-3.5 align-top">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[11px] font-bold text-slate-400 tabular-nums">
+                                  {String(item.itemNumber).padStart(2, '0')}
+                                </span>
+                                <span className="font-bold text-[#172033]">
+                                  {item.name}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                {item.estimateBasis}
+                              </p>
+                            </td>
+
+                            <td className="py-2.5 px-3 text-center align-middle whitespace-nowrap">
+                              {item.existsInDocument ? (
+                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-[7px] bg-emerald-50 border border-emerald-200 text-emerald-700 font-mono font-bold text-sm">
+                                  O
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-[7px] bg-rose-50 border border-rose-200 text-rose-700 font-mono font-bold text-sm">
+                                  X
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-2.5 px-3 align-middle">
+                              {item.existsInDocument ? (
+                                <span className="text-[11px] text-slate-500 leading-snug block">
+                                  {item.detectedValue}
+                                </span>
+                              ) : (
+                                <span className="font-mono font-semibold text-[#172033] tabular-nums block">
+                                  {item.estimatedValue}
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-2.5 px-3.5 text-center align-middle whitespace-nowrap">
+                              {item.existsInDocument ? (
+                                <span className="text-[11px] font-medium text-slate-400">
+                                  문서 반영
+                                </span>
+                              ) : (
+                                <label className="inline-flex items-center justify-center gap-1.5 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.includeEstimate}
+                                    onChange={() =>
+                                      onToggleCostItemEstimate(item.itemNumber)
+                                    }
+                                    aria-label={`${item.name} 추정치 반영 여부`}
+                                    className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB] cursor-pointer accent-[#2563EB]"
+                                  />
+                                  <span
+                                    className={`text-[11px] font-semibold ${
+                                      item.includeEstimate
+                                        ? 'text-[#2563EB]'
+                                        : 'text-slate-500'
+                                    }`}
+                                  >
+                                    {item.includeEstimate ? '반영' : '미반영'}
+                                  </span>
+                                </label>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="p-5 space-y-4">
-              {/* Live Auto-Summary of Current User Requests */}
-              <div className="p-3.5 rounded-[10px] bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-[#172033]">
-                    실시간 요청사항 자동 요약
-                  </span>
-                  <span className="text-slate-400 tabular-nums">
-                    {summaryLines.length}개 항목
-                  </span>
-                </div>
-                <ul className="space-y-1.5 text-xs text-slate-600 leading-relaxed">
-                  {summaryLines.map((line, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] mt-1.5 shrink-0" />
-                      <span className="break-words">{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Analysis Run Title (Shown in History 001, 002...) */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label
-                    htmlFor="analysis-run-title"
-                    className="text-xs font-semibold text-[#172033]"
-                  >
-                    분석 제목 (히스토리 비교용)
-                  </label>
-                  <span className="text-[11px] text-slate-400">
-                    미입력 시 자동 제목 부여
-                  </span>
-                </div>
-                <input
-                  id="analysis-run-title"
-                  type="text"
-                  value={analysisTitle}
-                  onChange={(e) => onChangeAnalysisTitle(e.target.value)}
-                  placeholder="예: H100 클러스터 3년 운영비 1차 분석"
-                  className="w-full px-3 py-2 text-xs font-medium text-[#172033] bg-white border border-slate-200 rounded-[8px] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Editable Notepad Area */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label
-                    htmlFor="request-summary-memo"
-                    className="text-xs font-semibold text-[#172033]"
-                  >
-                    메모장 (직접 요약·수정)
-                  </label>
-                  <span className="text-[11px] font-mono text-slate-400 tabular-nums">
-                    {requestMemo.length}자
-                  </span>
-                </div>
-                <textarea
-                  id="request-summary-memo"
-                  value={requestMemo}
-                  onChange={(e) => onChangeRequestMemo(e.target.value)}
-                  rows={8}
-                  placeholder={
-                    '분석 전 핵심 요청사항을 간단히 메모해 두세요.\n\n예:\n- H100 클러스터 36개월 운영비 위주\n- 전력 단가 상승분 및 냉각비 절감 포인트 집중 확인\n- 상단 "요약 채우기" 버튼을 누르면 현재 조건이 자동 정리됩니다.'
-                  }
-                  className="w-full px-3.5 py-3 text-xs text-[#172033] bg-amber-50/40 border border-amber-200/90 rounded-[10px] resize-y focus:outline-none focus:bg-amber-50/20 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 placeholder:text-slate-400 leading-relaxed"
-                />
-                <p className="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
-                  ※ 메모장에 적은 요약 내용은 LLM 분석 및 좌측 메신저 상담 시 함께 전달됩니다.
-                </p>
-              </div>
-            </div>
-          </aside>
-        </div>
+          </div>
 
         {/* AIDC Infrastructure & Operation Specifications Card */}
         <div className="card-enterprise p-6 sm:p-8 mb-8 bg-white">
@@ -980,6 +1135,24 @@ export const UploadPage: React.FC<UploadPageProps> = ({
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 사용 시점, 기간, GPU 시스템, 스토리지 용량 및 인터넷전용회선(DIA) 대역폭 조건을 입력하면 비용 산정에 함께 반영됩니다.
               </p>
+              <div className="mt-2.5 inline-flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 rounded-[8px] bg-slate-50 border border-slate-200 text-[11px] text-slate-600 tabular-nums">
+                <span className="font-semibold text-[#172033]">기본 산정 반영 기준:</span>
+                <span>
+                  달러 환율 <strong className="font-mono text-[#172033]">1300 USD</strong>
+                </span>
+                <span className="text-slate-300" aria-hidden="true">|</span>
+                <span>
+                  전기세 인상률 <strong className="font-mono text-[#172033]">3%</strong>
+                </span>
+                <span className="text-slate-300" aria-hidden="true">|</span>
+                <span>
+                  수도세 인상률 <strong className="font-mono text-[#172033]">3%</strong>
+                </span>
+                <span className="text-slate-300" aria-hidden="true">|</span>
+                <span>
+                  물가인상률 <strong className="font-mono text-[#172033]">3%</strong>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1313,53 +1486,6 @@ export const UploadPage: React.FC<UploadPageProps> = ({
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 업로드한 서류에서 어떤 기간이나 비용 항목을 중점적으로 볼지 자유롭게 지시하세요. 좌측 프롬프트 창에서도 언제든 수정·질문할 수 있습니다.
               </p>
-            </div>
-          </div>
-
-          {/* Structured Scope Selectors */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            <div>
-              <span className="block text-xs font-semibold text-slate-700 mb-2">
-                분석 기간 기준
-              </span>
-              <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-[10px]">
-                {TIMEFRAME_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => onChangeTimeframe(opt.value)}
-                    className={`flex-1 px-2.5 py-1.5 text-xs font-medium rounded-[7px] transition-colors cursor-pointer whitespace-nowrap ${
-                      timeframe === opt.value
-                        ? 'bg-white text-[#172033] font-semibold shadow-xs'
-                        : 'text-slate-600 hover:text-[#172033]'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="block text-xs font-semibold text-slate-700 mb-2">
-                중점 분석 영역
-              </span>
-              <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-[10px]">
-                {FOCUS_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => onChangeFocusArea(opt.value)}
-                    className={`px-2.5 py-1.5 text-xs font-medium rounded-[7px] transition-colors cursor-pointer whitespace-nowrap ${
-                      focusArea === opt.value
-                        ? 'bg-white text-[#172033] font-semibold shadow-xs'
-                        : 'text-slate-600 hover:text-[#172033]'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 

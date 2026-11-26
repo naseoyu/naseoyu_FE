@@ -15,8 +15,12 @@ import {
   AidcProjectSpecs,
   AnalysisHistoryEntry,
   AdditionalAnalysisPayload,
+  CostItemInspection,
 } from './types';
-import { SAMPLE_DATA_CENTER_PRESETS } from './data/costTaxonomyData';
+import {
+  SAMPLE_DATA_CENTER_PRESETS,
+  CORE_COST_ITEMS,
+} from './data/costTaxonomyData';
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
 import { PromptSidebar } from './components/llm/PromptSidebar';
@@ -79,8 +83,144 @@ export default function App() {
     return loaded.length > 0 ? loaded[loaded.length - 1].id : null;
   });
   const [chatMessages, setChatMessages] = useState<PromptChatMessage[]>([]);
+  const [costItemInspections, setCostItemInspections] = useState<
+    CostItemInspection[]
+  >([]);
+  const [isInspectingDocs, setIsInspectingDocs] = useState<boolean>(false);
+  const [inspectionError, setInspectionError] = useState<string | null>(null);
+  const [inspectionTrigger, setInspectionTrigger] = useState<number>(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastSyncedRunKeyRef = useRef<number | null>(null);
+  const lastInspectedSignatureRef = useRef<string>('');
+  const inspectionAbortRef = useRef<AbortController | null>(null);
+
+  const docsSignature = uploadedDocs
+    .map((d) => `${d.id}:${d.sizeBytes}:${d.base64Data ? 'b64' : 'meta'}`)
+    .join('|');
+
+  const runDocumentInspection = useCallback(
+    async (docsToInspect: UploadedDataCenterDoc[], force = false) => {
+      if (docsToInspect.length === 0) {
+        inspectionAbortRef.current?.abort();
+        lastInspectedSignatureRef.current = '';
+        setCostItemInspections([]);
+        setIsInspectingDocs(false);
+        setInspectionError(null);
+        return;
+      }
+
+      const sig = docsToInspect
+        .map((d) => `${d.id}:${d.sizeBytes}:${d.base64Data ? 'b64' : 'meta'}`)
+        .join('|');
+      if (!force && sig === lastInspectedSignatureRef.current) {
+        return;
+      }
+
+      inspectionAbortRef.current?.abort();
+      const controller = new AbortController();
+      inspectionAbortRef.current = controller;
+
+      setIsInspectingDocs(true);
+      setInspectionError(null);
+
+      try {
+        const res = await fetch('/api/inspect-documents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            documents: docsToInspect.map((d) => ({
+              id: d.id,
+              name: d.name,
+              sizeBytes: d.sizeBytes,
+              pageCount: d.pageCount,
+              sourceType: d.sourceType,
+              documentSummary: d.documentSummary,
+              base64Data: d.base64Data,
+            })),
+            aidcSpecs,
+          }),
+        });
+
+        const data = await res.json();
+        if (controller.signal.aborted) return;
+
+        if (!res.ok) {
+          setInspectionError(
+            data.error || '문서를 읽어 11대 비용 항목을 확인하는 중 오류가 발생했습니다.'
+          );
+          setCostItemInspections([]);
+          setIsInspectingDocs(false);
+          return;
+        }
+
+        const rawItems: Array<{
+          itemNumber: number;
+          itemName?: string;
+          existsInDocument: boolean;
+          detectedValue?: string;
+          estimatedValue?: string;
+          estimateBasis?: string;
+        }> = Array.isArray(data.items) ? data.items : [];
+
+        const itemMap = new Map(rawItems.map((it) => [Number(it.itemNumber), it]));
+
+        setCostItemInspections((prev) => {
+          const prevCheckMap = new Map(
+            prev.map((p) => [p.itemNumber, p.includeEstimate])
+          );
+          return CORE_COST_ITEMS.map((coreItem) => {
+            const matched = itemMap.get(coreItem.itemNumber);
+            const exists = Boolean(matched?.existsInDocument);
+            return {
+              itemNumber: coreItem.itemNumber,
+              name: coreItem.name,
+              category: coreItem.category,
+              existsInDocument: exists,
+              detectedValue:
+                matched?.detectedValue?.trim() || (exists ? '문서 내 확인됨' : '미기재'),
+              estimatedValue: exists
+                ? '-'
+                : matched?.estimatedValue?.trim() || '추정치 산출 필요',
+              estimateBasis:
+                matched?.estimateBasis?.trim() ||
+                (exists
+                  ? '업로드된 문서 내에서 해당 비용 항목이 확인되었습니다.'
+                  : '업로드된 문서 내에서 해당 비용 항목이 확인되지 않았습니다.'),
+              includeEstimate: exists
+                ? false
+                : prevCheckMap.get(coreItem.itemNumber) ?? false,
+            };
+          });
+        });
+
+        lastInspectedSignatureRef.current = sig;
+        setIsInspectingDocs(false);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setInspectionError(
+          err instanceof Error
+            ? `문서 읽기 오류: ${err.message}`
+            : '문서 읽기 서버와 연결할 수 없습니다.'
+        );
+        setCostItemInspections([]);
+        setIsInspectingDocs(false);
+      }
+    },
+    [aidcSpecs]
+  );
+
+  useEffect(() => {
+    if (uploadedDocs.length === 0) {
+      inspectionAbortRef.current?.abort();
+      lastInspectedSignatureRef.current = '';
+      setCostItemInspections([]);
+      setIsInspectingDocs(false);
+      setInspectionError(null);
+      return;
+    }
+    void runDocumentInspection(uploadedDocs, inspectionTrigger > 0);
+  }, [docsSignature, inspectionTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const matched = analysisHistory.find((e) => e.runKey === analysisRunKey);
@@ -527,7 +667,12 @@ export default function App() {
   };
 
   const handleNewAnalysis = () => {
+    inspectionAbortRef.current?.abort();
+    lastInspectedSignatureRef.current = '';
     setUploadedDocs([]);
+    setCostItemInspections([]);
+    setIsInspectingDocs(false);
+    setInspectionError(null);
     setAnalysisTitle('');
     setAnalysisRequest('');
     setRequestMemo('');
@@ -541,6 +686,29 @@ export default function App() {
     setAnalysisRunKey((k) => Math.max(k + 1, Date.now()));
     setCurrentPage('upload');
     scrollToTop();
+  };
+
+  const handleToggleCostItemEstimate = (itemNumber: number) => {
+    setCostItemInspections((prev) =>
+      prev.map((item) =>
+        item.itemNumber === itemNumber && !item.existsInDocument
+          ? { ...item, includeEstimate: !item.includeEstimate }
+          : item
+      )
+    );
+  };
+
+  const handleToggleAllMissingEstimates = (include: boolean) => {
+    setCostItemInspections((prev) =>
+      prev.map((item) =>
+        !item.existsInDocument ? { ...item, includeEstimate: include } : item
+      )
+    );
+  };
+
+  const handleReinspectDocs = () => {
+    lastInspectedSignatureRef.current = '';
+    setInspectionTrigger((c) => c + 1);
   };
 
   const handleAddChatMessage = (msg: PromptChatMessage) => {
@@ -648,6 +816,12 @@ export default function App() {
                     focusArea={focusArea}
                     aidcSpecs={aidcSpecs}
                     chatMessages={chatMessages}
+                    costItemInspections={costItemInspections}
+                    isInspectingDocs={isInspectingDocs}
+                    inspectionError={inspectionError}
+                    onToggleCostItemEstimate={handleToggleCostItemEstimate}
+                    onToggleAllMissingEstimates={handleToggleAllMissingEstimates}
+                    onReinspectDocs={handleReinspectDocs}
                     onAddDocs={handleAddDocs}
                     onRemoveDoc={handleRemoveDoc}
                     onUpdateDocTitle={handleUpdateDocTitle}
@@ -674,6 +848,7 @@ export default function App() {
                     timeframe={timeframe}
                     focusArea={focusArea}
                     aidcSpecs={aidcSpecs}
+                    costItemInspections={costItemInspections}
                     analysisRunKey={analysisRunKey}
                     onAnalysisComplete={handleAnalysisComplete}
                     onProceedToDashboard={handleProceedToDashboard}
