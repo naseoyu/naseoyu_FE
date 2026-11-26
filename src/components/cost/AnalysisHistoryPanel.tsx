@@ -232,28 +232,27 @@ export const AnalysisHistoryPanel: React.FC<AnalysisHistoryPanelProps> = ({
                               </span>
                             )}
 
-                            <span
-                              className={`px-2 py-0.5 text-[11px] font-semibold rounded-[6px] border ${
-                                entry.isAdditional
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : 'bg-slate-100 text-slate-600 border-slate-200'
-                              }`}
-                            >
-                              {entry.isAdditional
-                                ? `추가 분석${
-                                    entry.addedDocCount
-                                      ? ` (+${entry.addedDocCount}건)`
-                                      : ''
-                                  }`
-                                : '최초 분석'}
-                            </span>
+                            {entry.isAdditional && (
+                              <span className="px-2 py-0.5 text-[11px] font-semibold rounded-[6px] border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                {`추가 분석${
+                                  entry.addedDocCount
+                                    ? ` (+${entry.addedDocCount}건)`
+                                    : ''
+                                }`}
+                              </span>
+                            )}
                           </div>
 
                           {/* Memo Line */}
-                          <div className="flex items-start gap-1.5 text-xs text-slate-700 bg-amber-50/70 border border-amber-200/70 rounded-[8px] px-2.5 py-1.5">
-                            <NotebookPen className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                          <div
+                            className="flex items-start gap-1.5 text-xs text-slate-700 bg-amber-50/70 border border-amber-200/70 rounded-[8px] px-2.5 py-1.5"
+                            title="메모"
+                          >
+                            <NotebookPen
+                              className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5"
+                              aria-label="메모"
+                            />
                             <span className="leading-snug break-words">
-                              <strong className="text-amber-900 mr-1">메모:</strong>
                               {entry.memo ? (
                                 entry.memo
                               ) : (
@@ -415,11 +414,19 @@ export const AnalysisHistoryPanel: React.FC<AnalysisHistoryPanelProps> = ({
                               </h4>
                             </div>
 
-                            <div className="p-2.5 rounded-[8px] bg-amber-50/70 border border-amber-200/80 text-xs text-slate-700">
-                              <span className="font-semibold text-amber-800 mr-1">메모:</span>
-                              {entry.memo || (
-                                <span className="text-slate-400">작성된 메모 없음</span>
-                              )}
+                            <div
+                              className="flex items-start gap-1.5 p-2.5 rounded-[8px] bg-amber-50/70 border border-amber-200/80 text-xs text-slate-700"
+                              title="메모"
+                            >
+                              <NotebookPen
+                                className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5"
+                                aria-label="메모"
+                              />
+                              <span className="leading-snug break-words">
+                                {entry.memo || (
+                                  <span className="text-slate-400">작성된 메모 없음</span>
+                                )}
+                              </span>
                             </div>
                           </div>
 

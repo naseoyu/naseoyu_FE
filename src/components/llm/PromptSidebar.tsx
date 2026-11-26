@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Send,
   RotateCcw,
-  FileText,
   Loader2,
   AlertCircle,
   PanelLeftClose,
@@ -151,6 +150,19 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
       : currentPage === 'analysis_loading'
       ? 'LLM 분석'
       : '비용 분석 결과';
+
+  const displayAnalysisTitle =
+    analysisTitle.trim() ||
+    (uploadedDocs[0]?.name ? `${uploadedDocs[0].name} 분석` : '');
+
+  const hasAidcSpecs = Boolean(
+    aidcSpecs &&
+      (aidcSpecs.commencementDate ||
+        aidcSpecs.usageDuration ||
+        aidcSpecs.gpuSystemType ||
+        aidcSpecs.storageCapacity ||
+        aidcSpecs.diaBandwidth)
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -331,72 +343,29 @@ export const PromptSidebar: React.FC<PromptSidebarProps> = ({
         </div>
       </div>
 
-      {/* Active Context Strip */}
+      {/* Active Title & AIDC Specs Strip */}
       <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs shrink-0 space-y-1.5">
-        <div className="flex items-center justify-between text-[11px] text-slate-500">
-          <span className="font-semibold text-slate-700">연결된 분석 컨텍스트</span>
-          <span className="tabular-nums font-mono">{uploadedDocs.length} PDF</span>
+        <div className="text-[11px] text-slate-600">
+          <span className="font-semibold text-[#172033]">분석 제목: </span>
+          {displayAnalysisTitle ? (
+            <span className="font-medium text-slate-800">{displayAnalysisTitle}</span>
+          ) : (
+            <span className="text-slate-400">미입력</span>
+          )}
         </div>
 
-        {uploadedDocs.length > 0 ? (
-          <div className="space-y-1 max-h-20 overflow-y-auto">
-            {uploadedDocs.map((doc, idx) => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-1.5 text-[11px] text-slate-600 truncate"
-              >
-                <FileText className="w-3 h-3 text-[#2563EB] shrink-0" />
-                <span className="font-mono text-slate-400 shrink-0">
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                <span className="truncate font-medium text-slate-800">{doc.name}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[11px] text-slate-400">
-            서류를 업로드하면 문서 내용을 참조해 답변합니다.
-          </p>
-        )}
-
-        {analysisTitle.trim() && (
-          <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600">
-            <span className="font-semibold text-[#172033]">분석 제목: </span>
-            <span className="font-medium text-slate-800">{analysisTitle}</span>
-          </div>
-        )}
-
-        {analysisRequest.trim() && (
-          <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600">
-            <span className="font-semibold text-[#2563EB]">적용 요청: </span>
-            <span className="line-clamp-2">{analysisRequest}</span>
-          </div>
-        )}
-
-        {requestMemo.trim() && (
-          <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600">
-            <span className="font-semibold text-amber-700">요약 메모: </span>
-            <span className="line-clamp-2">{requestMemo}</span>
-          </div>
-        )}
-
-        {aidcSpecs &&
-          (aidcSpecs.commencementDate ||
-            aidcSpecs.usageDuration ||
-            aidcSpecs.gpuSystemType ||
-            aidcSpecs.storageCapacity ||
-            aidcSpecs.diaBandwidth) && (
-            <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600 space-y-0.5">
-              <span className="font-semibold text-slate-700 block">AIDC 입력 조건</span>
-              <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-slate-500">
-                {aidcSpecs.commencementDate && <span>가동: {aidcSpecs.commencementDate}</span>}
-                {aidcSpecs.usageDuration && <span>기간: {aidcSpecs.usageDuration}</span>}
-                {aidcSpecs.gpuSystemType && <span>GPU: {aidcSpecs.gpuSystemType}</span>}
-                {aidcSpecs.storageCapacity && <span>Storage: {aidcSpecs.storageCapacity}</span>}
-                {aidcSpecs.diaBandwidth && <span>DIA: {aidcSpecs.diaBandwidth}</span>}
-              </div>
+        {hasAidcSpecs && aidcSpecs && (
+          <div className="pt-1.5 border-t border-slate-200/80 text-[11px] text-slate-600 space-y-0.5">
+            <span className="font-semibold text-slate-700 block">AIDC 입력 조건</span>
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-slate-500">
+              {aidcSpecs.commencementDate && <span>가동: {aidcSpecs.commencementDate}</span>}
+              {aidcSpecs.usageDuration && <span>기간: {aidcSpecs.usageDuration}</span>}
+              {aidcSpecs.gpuSystemType && <span>GPU: {aidcSpecs.gpuSystemType}</span>}
+              {aidcSpecs.storageCapacity && <span>Storage: {aidcSpecs.storageCapacity}</span>}
+              {aidcSpecs.diaBandwidth && <span>DIA: {aidcSpecs.diaBandwidth}</span>}
             </div>
-          )}
+          </div>
+        )}
       </div>
 
       {/* Messenger Conversation Scroll Area */}
